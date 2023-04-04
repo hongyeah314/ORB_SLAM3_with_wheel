@@ -183,14 +183,15 @@ void LocalMapping::Run()
                         if(!mpCurrentKeyFrame->GetMap()->GetIniertialBA2())
                         {
                             // 如果累计时间差小于10s 并且 距离小于2厘米，认为运动幅度太小，不足以初始化IMU，将mbBadImu设置为true
-                            if((mTinit<10.f) && (dist<0.02))
-                            {
-                                cout << "Not enough motion for initializing. Reseting..." << endl;
-                                unique_lock<mutex> lock(mMutexReset);
-                                mbResetRequestedActiveMap = true;
-                                mpMapToReset = mpCurrentKeyFrame->GetMap();
-                                mbBadImu = true;  // 在跟踪线程里会重置当前活跃地图
-                            }
+                            //zl在这里修改参数
+//                            if((mTinit<10.f) && (dist<0.02))
+//                            {
+//                                cout << "Not enough motion for initializing. Reseting..." << endl;
+//                                unique_lock<mutex> lock(mMutexReset);
+//                                mbResetRequestedActiveMap = true;
+//                                mpMapToReset = mpCurrentKeyFrame->GetMap();
+//                                mbBadImu = true;  // 在跟踪线程里会重置当前活跃地图
+//                            }
                         }
                         // 判断成功跟踪匹配的点数是否足够多
                         // 条件---------1.1、跟踪成功的内点数目大于75-----1.2、并且是单目--或--2.1、跟踪成功的内点数目大于100-----2.2、并且不是单目

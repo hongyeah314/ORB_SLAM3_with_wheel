@@ -80,11 +80,11 @@ int main(int argc, char **argv)
     {
         cout << "Loading images for sequence " << seq << "...";
         LoadImagesTUMVI(string(argv[3*(seq+1)]), string(argv[3*(seq+1)+1]), vstrImageFilenames[seq], vTimestampsCam[seq]);
-        cout << "LOADED!" << endl;
+        cout << "LOADED images!" << endl;
 
         cout << "Loading IMU for sequence " << seq << "...";
         LoadIMU(string(argv[3*(seq+1)+2]), vTimestampsImu[seq], vAcc[seq], vGyro[seq]);
-        cout << "LOADED!" << endl;
+        cout << "LOADED IMU!" << endl;
 
         nImages[seq] = vstrImageFilenames[seq].size();
         tot_images += nImages[seq];
@@ -305,7 +305,8 @@ void LoadImagesTUMVI(const string &strImagePath, const string &strPathTimes,
             int pos = s.find(' ');
             string item = s.substr(0, pos);
 
-            vstrImages.push_back(strImagePath + "/" + item + ".png");
+            vstrImages.push_back(strImagePath + "/" + item + ".jpg");
+//            cout<<strImagePath + "/" + item + ".jpg"<<endl;
             double t = stod(item);
             vTimeStamps.push_back(t/1e9);
         }

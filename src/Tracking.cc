@@ -1876,6 +1876,11 @@ void Tracking::PreintegrateIMU()
     mCurrentFrame.mpLastKeyFrame = mpLastKeyFrame;
 
     mCurrentFrame.setIntegrated();
+//    cout<<"当前帧id "<<mCurrentFrame.mnId<<endl;
+//    if (mCurrentFrame.mpLastKeyFrame){
+//        cout<<"上一关键帧id "<<mCurrentFrame.mpLastKeyFrame->mnId<<endl;
+//        cout<<"预积分的旋转变化"<<endl<<mCurrentFrame.mpImuPreintegrated->dR<<endl;
+//        cout<<"预积分的位置变化"<<endl<<mCurrentFrame.mpImuPreintegrated->dP<<endl;}
 
     //Verbose::PrintMess("Preintegration is finished!! ", Verbose::VERBOSITY_DEBUG);
 }
@@ -1951,6 +1956,7 @@ bool Tracking::PredictStateIMU()
     }
     else
         cout << "not IMU prediction!!" << endl;
+        cerr<<"PredictStateIMU ERRO"<<endl;
 
     return false;
 }
@@ -2156,6 +2162,8 @@ void Tracking::Track()
                 {
                     Verbose::PrintMess("TRACK: Track with respect to the reference KF ", Verbose::VERBOSITY_DEBUG);
                     bOK = TrackReferenceKeyFrame();
+                    cerr<<"参考关键帧环节成功 :"<<bOK<<endl;
+
                 }
                 else
                 {
@@ -2164,8 +2172,10 @@ void Tracking::Track()
                     // 根据恒速模型设定当前帧的初始位姿，用最近的普通帧来跟踪当前的普通帧
                     // 通过投影的方式在参考帧中找当前帧特征点的匹配点，优化每个特征点所对应3D点的投影误差即可得到位姿
                     bOK = TrackWithMotionModel();
-                    if(!bOK)
+                    cerr<<"恒速运动模型成功： "<<bOK<<endl;
+                    if(!bOK){
                         bOK = TrackReferenceKeyFrame();  // 根据恒速模型失败了，只能根据参考关键帧来跟踪
+                        cerr<<"恒速运动模型失败，只能用参考关键帧来进行跟踪： "<<bOK<<endl;}
                 }
 
                 // 新增了一个状态RECENTLY_LOST，主要是结合IMU看看能不能拽回来
@@ -2179,6 +2189,7 @@ void Tracking::Track()
                     if ( mCurrentFrame.mnId<=(mnLastRelocFrameId+mnFramesToResetIMU) &&
                          (mSensor==System::IMU_MONOCULAR || mSensor==System::IMU_STEREO || mSensor == System::IMU_RGBD))
                     {
+                        cerr<<"当前帧距离上次重定位成功不到1s,单目+IMU,设置为LOST"<<endl;
                         mState = LOST;
                     }
                     else if(pCurrentMap->KeyFramesInMap()>10)
@@ -2187,6 +2198,7 @@ void Tracking::Track()
                         // 条件1：当前地图中关键帧数目较多（大于10） 
                         // 条件2（隐藏条件）：当前帧距离上次重定位帧超过1s（说明还比较争气，值的救）或者非IMU模式
                         // 同时满足条件1，2，则将状态标记为RECENTLY_LOST，后面会结合IMU预测的位姿看看能不能拽回来
+                        cerr<<"恒速模型失败，关键帧模型失败"<<"设置为 recently lost"<<endl;
                         mState = RECENTLY_LOST;
                         // 记录丢失时间
                         mTimeStampLost = mCurrentFrame.mTimeStamp;
@@ -2203,6 +2215,7 @@ void Tracking::Track()
                 if (mState == RECENTLY_LOST)
                 {
                     Verbose::PrintMess("Lost for a short time", Verbose::VERBOSITY_NORMAL);
+                    cerr<<"目前已经是recently lost，尝试利用IMU拉回来"<<endl;
                     // bOK先置为true
                     bOK = true;
                     if((mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD))
@@ -2432,7 +2445,9 @@ void Tracking::Track()
                 if(!pCurrentMap->isImuInitialized() || !pCurrentMap->GetIniertialBA2())
                 {
                     // IMU模式下IMU没有成功初始化或者没有完成IMU BA，则重置当前地图
-                    cout << "IMU is not or recently initialized. Reseting active map..." << endl;
+                    cerr<<"IMU模式下IMU成功初始化"<<pCurrentMap->isImuInitialized()<<endl;
+                    cerr<<"完成IMU BA"<<pCurrentMap->GetIniertialBA2()<<endl;
+                    cerr << "IMU is not or recently initialized. Reseting active map..." << endl;
                     mpSystem->ResetActiveMap();
                 }
 
@@ -2872,7 +2887,7 @@ void Tracking::MonocularInitialization()
         // 对 mInitialFrame,mCurrentFrame 进行特征点匹配
         // mvbPrevMatched为参考帧的特征点坐标，初始化存储的是mInitialFrame中特征点坐标，匹配后存储的是匹配好的当前帧的特征点坐标
         // mvIniMatches 保存参考帧F1中特征点是否匹配上，index保存是F1对应特征点索引，值保存的是匹配好的F2特征点索引
-        int nmatches = matcher.SearchForInitialization(mInitialFrame,mCurrentFrame,mvbPrevMatched,mvIniMatches,100);
+        int nmatches = matcher.SearchForInitialization(mInitialFrame,mCurrentFrame,mvbPrevMatched,mvIniMatches,125);
 
         // Check if there are enough correspondences
         // Step 4 验证匹配结果，如果初始化的两帧之间的匹配点太少，重新初始化
@@ -2908,6 +2923,8 @@ void Tracking::MonocularInitialization()
             // Initialize函数会得到mvIniP3D，
             // mvIniP3D是cv::Point3f类型的一个容器，是个存放3D点的临时变量，
             // CreateInitialMapMonocular将3D点包装成MapPoint类型存入KeyFrame和Map中
+
+
             CreateInitialMapMonocular();
         }
     }
@@ -3040,6 +3057,11 @@ void Tracking::CreateInitialMapMonocular()
         pKFcur->mpImuPreintegrated = mpImuPreintegratedFromLastKF;
 
         mpImuPreintegratedFromLastKF = new IMU::Preintegrated(pKFcur->mpImuPreintegrated->GetUpdatedBias(),pKFcur->mImuCalib);
+
+
+        cout<<"开始单目初始化"<<endl;
+        cout<<"相机相对于世界坐标系的转换矩阵为："<<endl<<pKFcur->GetPoseInverse().matrix()<<endl;
+
     }
 
     // Step 8 将关键帧插入局部地图，更新归一化后的位姿、局部地图点
@@ -3185,7 +3207,7 @@ bool Tracking::TrackReferenceKeyFrame()
     // 匹配数目小于15，认为跟踪失败
     if(nmatches<15)
     {
-        cout << "TRACK_REF_KF: Less than 15 matches!!\n";
+        cerr  << "TrackReferenceKeyFrame: Less than 15 matches!!\n";
         return false;
     }
 
@@ -3236,7 +3258,8 @@ bool Tracking::TrackReferenceKeyFrame()
     if (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
         return true;
     else
-        return nmatchesMap>=10;  // 跟踪成功的数目超过10才认为跟踪成功，否则跟踪失败
+        //return nmatchesMap>=10;  // 跟踪成功的数目超过10才认为跟踪成功，否则跟踪失败
+        return nmatchesMap>=2;  //zl在这里进行参数修改
 }
 
 /**
@@ -3364,6 +3387,7 @@ bool Tracking::TrackWithMotionModel()
     {
         // Predict state with IMU if it is initialized and it doesnt need reset
         // IMU完成初始化 并且 距离重定位挺久不需要重置IMU，用IMU来估计位姿，没有后面的这那那这的
+        cerr<<"IMU完成初始化 并且 距离重定位挺久不需要重置IMU，用IMU来估计位姿"<<endl;
         PredictStateIMU();
         return true;
     }
@@ -3399,11 +3423,12 @@ bool Tracking::TrackWithMotionModel()
         Verbose::PrintMess("Matches with wider search: " + to_string(nmatches), Verbose::VERBOSITY_NORMAL);
 
     }
-
+    cerr<<"Matches with 匹配点: " + to_string(nmatches)<<endl;
     // 这里不同于ORB-SLAM2的方式
     if(nmatches<20)
     {
         Verbose::PrintMess("Not enough matches!!", Verbose::VERBOSITY_NORMAL);
+        cerr<<" TrackWithMotionModel Not enough matches!"<<endl;
         if (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
             return true;
         else
@@ -3442,7 +3467,7 @@ bool Tracking::TrackWithMotionModel()
                 nmatchesMap++;
         }
     }
-
+    cerr<<"剔除地图点中外点 : "<<nmatchesMap<<endl;
     // 纯定位模式下：如果成功追踪的地图点非常少,那么这里的mbVO标志就会置位
     if(mbOnlyTracking)
     {
