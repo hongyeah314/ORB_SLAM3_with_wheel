@@ -323,6 +323,89 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
     dT += dt;
 }
 
+
+void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration, const Eigen::Vector3f &angVel, const float &dt,const double &encoder_v)
+    {
+        // 保存imu数据，利用中值积分的结果构造一个预积分类保存在mvMeasurements中
+        mvMeasurements.push_back(integrable(acceleration, angVel, dt));
+
+        // Position is updated firstly, as it depends on previously computed velocity and rotation.
+        // Velocity is updated secondly, as it depends on previously computed rotation.
+        // Rotation is the last to be updated.
+
+        // Matrices to compute covariance
+        // Step 1.构造协方差矩阵
+        // 噪声矩阵的传递矩阵，这部分用于计算i到j-1历史噪声或者协方差
+        Eigen::Matrix<float, 9, 9> A;
+        A.setIdentity();
+        // 噪声矩阵的传递矩阵，这部分用于计算j-1新的噪声或协方差，这两个矩阵里面的数都是当前时刻的，计算主要是为了下一时刻使用
+        Eigen::Matrix<float, 9, 6> B;
+        B.setZero();
+
+        // 考虑偏置后的加速度、角速度
+        Eigen::Vector3f acc, accW;
+        acc << acceleration(0) - b.bax, acceleration(1) - b.bay, acceleration(2) - b.baz;
+        accW << angVel(0) - b.bwx, angVel(1) - b.bwy, angVel(2) - b.bwz;
+
+        // 记录平均加速度和角速度
+        avgA = (dT * avgA + dR * acc * dt) / (dT + dt);
+        avgW = (dT * avgW + accW * dt) / (dT + dt);
+        encoder_velocity = (dT*encoder_velocity+encoder_v*dt)/ (dT + dt);
+
+        // Update delta position dP and velocity dV (rely on no-updated delta rotation)
+        // 根据没有更新的dR来更新dP与dV  eq.(38)
+        dP = dP + dV * dt + 0.5f * dR * acc * dt * dt;
+        dV = dV + dR * acc * dt;
+
+
+
+        // Compute velocity and position parts of matrices A and B (rely on non-updated delta rotation)
+        // 根据η_ij = A * η_i,j-1 + B_j-1 * η_j-1中的Ａ矩阵和Ｂ矩阵对速度和位移进行更新
+        Eigen::Matrix<float, 3, 3> Wacc = Sophus::SO3f::hat(acc);
+
+        A.block<3, 3>(3, 0) = -dR * dt * Wacc;
+        A.block<3, 3>(6, 0) = -0.5f * dR * dt * dt * Wacc;
+        A.block<3, 3>(6, 3) = Eigen::DiagonalMatrix<float, 3>(dt, dt, dt);
+        B.block<3, 3>(3, 3) = dR * dt;
+        B.block<3, 3>(6, 3) = 0.5f * dR * dt * dt;
+
+        // Update position and velocity jacobians wrt bias correction
+        // 因为随着时间推移，不可能每次都重新计算雅克比矩阵，所以需要做J(k+1) = j(k) + (~)这类事，分解方式与AB矩阵相同
+        // 论文作者对forster论文公式的基础上做了变形，然后递归更新，参见 https://github.com/UZ-SLAMLab/ORB_SLAM3/issues/212
+        JPa = JPa + JVa * dt - 0.5f * dR * dt * dt;
+        JPg = JPg + JVg * dt - 0.5f * dR * dt * dt * Wacc * JRg;
+        JVa = JVa - dR * dt;
+        JVg = JVg - dR * dt * Wacc * JRg;
+
+        // Update delta rotation
+        // Step 2. 构造函数，会根据更新后的bias进行角度积分
+        IntegratedRotation dRi(angVel, b, dt);
+        // 强行归一化使其符合旋转矩阵的格式
+        dR = NormalizeRotation(dR * dRi.deltaR);
+
+        // Compute rotation parts of matrices A and B
+        // 补充AB矩阵
+        A.block<3, 3>(0, 0) = dRi.deltaR.transpose();
+        B.block<3, 3>(0, 0) = dRi.rightJ * dt;
+
+        // 小量delta初始为0，更新后通常也为0，故省略了小量的更新
+        // Update covariance
+        // Step 3.更新协方差，frost经典预积分论文的第63个公式，推导了噪声（ηa, ηg）对dR dV dP 的影响
+        C.block<9, 9>(0, 0) = A * C.block<9, 9>(0, 0) * A.transpose() + B * Nga * B.transpose();  // B矩阵为9*6矩阵 Nga 6*6对角矩阵，3个陀螺仪噪声的平方，3个加速度计噪声的平方
+        // 这一部分最开始是0矩阵，随着积分次数增加，每次都加上随机游走，偏置的信息矩阵
+        C.block<6, 6>(9, 9) += NgaWalk;
+
+        // Update rotation jacobian wrt bias correction
+        // 计算偏置的雅克比矩阵，r对bg的导数，∂ΔRij/∂bg = (ΔRjj-1) * ∂ΔRij-1/∂bg - Jr(j-1)*t
+        // 论文作者对forster论文公式的基础上做了变形，然后递归更新，参见 https://github.com/UZ-SLAMLab/ORB_SLAM3/issues/212
+        // ? 为什么先更新JPa、JPg、JVa、JVg最后更新JRg? 答：这里必须先更新dRi才能更新到这个值，但是为什么JPg和JVg依赖的上一个JRg值进行更新的？
+        JRg = dRi.deltaR.transpose() * JRg - dRi.rightJ * dt;
+
+        // Total integrated time
+        // 更新总时间
+        dT += dt;
+    }
+
 /** 
  * @brief 融合两个预积分，发生在删除关键帧的时候，3帧变2帧，需要把两段预积分融合
  * @param pPrev 前面的预积分

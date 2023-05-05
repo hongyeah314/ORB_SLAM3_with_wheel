@@ -1819,6 +1819,8 @@ void Tracking::PreintegrateIMU()
     {
         float tstep;
         Eigen::Vector3f acc, angVel;
+        double encoder_v;
+
         // 第一帧数据但不是最后两帧,imu总帧数大于2
         if((i==0) && (i<(n-1)))
         {
@@ -1836,6 +1838,8 @@ void Tracking::PreintegrateIMU()
             angVel = (mvImuFromLastFrame[i].w+mvImuFromLastFrame[i+1].w-
                     (mvImuFromLastFrame[i+1].w-mvImuFromLastFrame[i].w)*(tini/tab))*0.5f;
             tstep = mvImuFromLastFrame[i+1].t-mCurrentFrame.mpPrevFrame->mTimeStamp;
+            encoder_v = (mvImuFromLastFrame[i].encoder_v+mvImuFromLastFrame[i+1].encoder_v-
+                              (mvImuFromLastFrame[i+1].encoder_v-mvImuFromLastFrame[i].encoder_v)*(tini/tab))*0.5f;
         }
         else if(i<(n-1))
         {
@@ -1853,6 +1857,8 @@ void Tracking::PreintegrateIMU()
                     (mvImuFromLastFrame[i+1].a-mvImuFromLastFrame[i].a)*(tend/tab))*0.5f;
             angVel = (mvImuFromLastFrame[i].w+mvImuFromLastFrame[i+1].w-
                     (mvImuFromLastFrame[i+1].w-mvImuFromLastFrame[i].w)*(tend/tab))*0.5f;
+            encoder_v = (mvImuFromLastFrame[i].encoder_v+mvImuFromLastFrame[i+1].encoder_v-
+                      (mvImuFromLastFrame[i+1].encoder_v-mvImuFromLastFrame[i].encoder_v)*(tend/tab))*0.5f;
             tstep = mCurrentFrame.mTimeStamp-mvImuFromLastFrame[i].t;
         }
          // 就两个数据时使用第一个时刻的，这种情况应该没有吧，，回头应该试试看
@@ -1860,14 +1866,24 @@ void Tracking::PreintegrateIMU()
         {
             acc = mvImuFromLastFrame[i].a;
             angVel = mvImuFromLastFrame[i].w;
+            encoder_v = mvImuFromLastFrame[i].encoder_v;
             tstep = mCurrentFrame.mTimeStamp-mCurrentFrame.mpPrevFrame->mTimeStamp;
         }
         // Step 3.依次进行预积分计算
         // 应该是必存在的吧，一个是相对上一关键帧，一个是相对上一帧
         if (!mpImuPreintegratedFromLastKF)
             cout << "mpImuPreintegratedFromLastKF does not exist" << endl;
+        cerr<<"当前的轮速为： "<< encoder_v<<endl;
+        bool buseencoder;
+        buseencoder = true;
+        if(buseencoder){
+            mpImuPreintegratedFromLastKF->IntegrateNewMeasurement(acc,angVel,tstep,encoder_v);
+            pImuPreintegratedFromLastFrame->IntegrateNewMeasurement(acc,angVel,tstep,encoder_v);
+        }
+        else{
         mpImuPreintegratedFromLastKF->IntegrateNewMeasurement(acc,angVel,tstep);
         pImuPreintegratedFromLastFrame->IntegrateNewMeasurement(acc,angVel,tstep);
+        }
     }
 
     // 记录当前预积分的图像帧
@@ -1876,11 +1892,13 @@ void Tracking::PreintegrateIMU()
     mCurrentFrame.mpLastKeyFrame = mpLastKeyFrame;
 
     mCurrentFrame.setIntegrated();
-//    cout<<"当前帧id "<<mCurrentFrame.mnId<<endl;
+    cout<<"当前帧id "<<mCurrentFrame.mnId<<endl;
 //    if (mCurrentFrame.mpLastKeyFrame){
-//        cout<<"上一关键帧id "<<mCurrentFrame.mpLastKeyFrame->mnId<<endl;
-//        cout<<"预积分的旋转变化"<<endl<<mCurrentFrame.mpImuPreintegrated->dR<<endl;
-//        cout<<"预积分的位置变化"<<endl<<mCurrentFrame.mpImuPreintegrated->dP<<endl;}
+//        cerr<<"上一关键帧id "<<mCurrentFrame.mpLastKeyFrame->mnId<<endl;
+//        cerr<<"预积分的速度变化"<<endl<<mCurrentFrame.mpImuPreintegrated->dV<<endl;
+//        cerr<<"预积分的位置变化"<<endl<<mCurrentFrame.mpImuPreintegrated->dP<<endl;
+//        cerr<<"轮速变化"<<endl<<mCurrentFrame.mpImuPreintegrated->encoder_velocity<<endl;
+//    }
 
     //Verbose::PrintMess("Preintegration is finished!! ", Verbose::VERBOSITY_DEBUG);
 }
@@ -2019,37 +2037,42 @@ void Tracking::Track()
             // cout << "id last: " << mLastFrame.mnId << "    id curr: " << mCurrentFrame.mnId << endl;
             // 如果当前图像时间戳和前一帧图像时间戳大于1s，说明时间戳明显跳变了，重置地图后直接返回
             //根据是否是imu模式,进行imu的补偿
-            if(mpAtlas->isInertial())
-            {
-                // 如果当前地图imu成功初始化
-                if(mpAtlas->isImuInitialized())
-                {
-                    cout << "Timestamp jump detected. State set to LOST. Reseting IMU integration..." << endl;
-                    // IMU完成第3次初始化（在localmapping线程里）
-                    if(!pCurrentMap->GetIniertialBA2())
-                    {
-                        // 如果当前子图中imu没有经过BA2，重置active地图，也就是之前的数据不要了
-                        mpSystem->ResetActiveMap();
-                    }
-                    else
-                    {
-                        // 如果当前子图中imu进行了BA2，重新创建新的子图，保存当前地图
-                        CreateMapInAtlas();
-                    }
-                }
-                else
-                {
-                    // 如果当前子图中imu还没有初始化，重置active地图
-                    cout << "Timestamp jump detected, before IMU initialization. Reseting..." << endl;
-                    mpSystem->ResetActiveMap();
-                }
-                return;
-            }
+//            if(mpAtlas->isInertial())
+//            {
+//                // 如果当前地图imu成功初始化
+//                if(mpAtlas->isImuInitialized())
+//                {
+//                    cout << "Timestamp jump detected. State set to LOST. Reseting IMU integration..." << endl;
+//                    // IMU完成第3次初始化（在localmapping线程里）
+//                    if(!pCurrentMap->GetIniertialBA2())
+//                    {
+//                        // 如果当前子图中imu没有经过BA2，重置active地图，也就是之前的数据不要了
+//                        CreateMapInAtlas();
+//                        //mpSystem->ResetActiveMap();
+//
+//                    }
+//                    else
+//                    {
+//                        // 如果当前子图中imu进行了BA2，重新创建新的子图，保存当前地图
+//                        CreateMapInAtlas();
+//                    }
+//                }
+//                else
+//                {
+//                    // 如果当前子图中imu还没有初始化，重置active地图
+//                    cout << "Timestamp jump detected, before IMU initialization. Reseting..." << endl;
+//                    mpSystem->ResetActiveMap();
+//                }
+//                return;
+//            }
 
         }
     }
 
     // Step 3 IMU模式下设置IMU的Bias参数,还要保证上一帧存在
+
+
+
     if ((mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD) && mpLastKeyFrame)
         mCurrentFrame.SetNewBias(mpLastKeyFrame->GetImuBias());  // 使用上一帧的bias作为当前帧的初值
 
@@ -2896,6 +2919,12 @@ void Tracking::MonocularInitialization()
             mbReadyToInitializate = false;
             return;
         }
+
+
+        // TODO: 修改这里
+
+
+
 
         // Step 5 通过H模型或F模型进行单目初始化，得到两帧间相对运动、初始MapPoints
         Sophus::SE3f Tcw;

@@ -51,10 +51,13 @@ public:
              const double &timestamp): a(acc_x,acc_y,acc_z), w(ang_vel_x,ang_vel_y,ang_vel_z), t(timestamp){}
     Point(const cv::Point3f Acc, const cv::Point3f Gyro, const double &timestamp):
         a(Acc.x,Acc.y,Acc.z), w(Gyro.x,Gyro.y,Gyro.z), t(timestamp){}
+    Point(const cv::Point3f Acc, const cv::Point3f Gyro, const double &timestamp, const double& encoder_v):
+            a(Acc.x,Acc.y,Acc.z), w(Gyro.x,Gyro.y,Gyro.z), t(timestamp), encoder_v(encoder_v){}
 public:
     Eigen::Vector3f a;
     Eigen::Vector3f w;
     double t;
+    double encoder_v;
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
@@ -177,6 +180,7 @@ public:
     void CopyFrom(Preintegrated* pImuPre);
     void Initialize(const Bias &b_);
     void IntegrateNewMeasurement(const Eigen::Vector3f &acceleration, const Eigen::Vector3f &angVel, const float &dt);
+    void IntegrateNewMeasurement(const Eigen::Vector3f &acceleration, const Eigen::Vector3f &angVel, const float &dt,const double &encoder_v );
     void Reintegrate();
     void MergePrevious(Preintegrated* pPrev);
     void SetNewBias(const Bias &bu_);
@@ -219,6 +223,7 @@ public:
     Eigen::Vector3f dV, dP;
     Eigen::Matrix3f JRg, JVg, JVa, JPg, JPa;
     Eigen::Vector3f avgA, avgW;
+    double encoder_velocity = 0;
 
 
 private:

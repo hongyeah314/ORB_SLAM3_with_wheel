@@ -20,7 +20,7 @@
 #include "Converter.h"
 #include "ImuTypes.h"
 #include <mutex>
-
+#include <iostream>
 namespace ORB_SLAM3
 {
 
@@ -131,6 +131,8 @@ void KeyFrame::SetVelocity(const Eigen::Vector3f &Vw)
     unique_lock<mutex> lock(mMutexPose);
     mVw = Vw;
     mbHasVelocity = true;
+    std::cerr<<"目前正在向关键帧设置速度"<<std::endl;
+    std::cerr<<"优化结果为::"<<mVw<<endl;
 }
 
 // 获取位姿
@@ -151,6 +153,7 @@ Sophus::SE3f KeyFrame::GetPoseInverse()
 Eigen::Vector3f KeyFrame::GetCameraCenter()
 {
     unique_lock<mutex> lock(mMutexPose);
+    
     return mTwc.translation();
 }
 
