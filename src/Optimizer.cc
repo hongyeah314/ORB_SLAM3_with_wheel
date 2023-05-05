@@ -2484,6 +2484,9 @@ void Optimizer::LocalInertialBA(
             vegr[i]->setVertex(0, VG1);
             vegr[i]->setVertex(1, VG2);
             Eigen::Matrix3d InfoG = pKFi->mpImuPreintegrated->C.block<3, 3>(9, 9).cast<double>().inverse();
+            cerr<<"local BA中关键帧的dP"<<pKFi->mpImuPreintegrated->dP;
+            cerr<<"local BA中关键帧的轮速"<<pKFi->mpImuPreintegrated->encoder_velocity;
+
             vegr[i]->setInformation(InfoG);
             optimizer.addEdge(vegr[i]);
 
@@ -3615,10 +3618,10 @@ void Optimizer::FullInertialBA(
             if (nLoopId == 0)
             {
                 pKFi->SetVelocity(VV->estimate().cast<float>());
-                if(pKFi->mpImuPreintegrated->encoder_velocity)
-                    cerr<<"轮速结果"<<pKFi->mpImuPreintegrated->encoder_velocity<<endl;
-                else
-                    cerr<<"轮速结果为空"<<endl;
+//                if(pKFi->mpImuPreintegrated->encoder_velocity)
+//                    cerr<<"轮速结果"<<pKFi->mpImuPreintegrated->encoder_velocity<<endl;
+//                else
+//                    cerr<<"轮速结果为空"<<endl;
 
             }
             else
@@ -3876,10 +3879,10 @@ void Optimizer::InertialOptimization(
         VertexVelocity *VV = static_cast<VertexVelocity *>(optimizer.vertex(maxKFid + (pKFi->mnId) + 1));
         Eigen::Vector3d Vw = VV->estimate(); // Velocity is scaled after
         pKFi->SetVelocity(Vw.cast<float>());
-        if(pKFi->mpImuPreintegrated->encoder_velocity)
-            cerr<<"轮速结果"<<pKFi->mpImuPreintegrated->encoder_velocity<<endl;
-        else
-            cerr<<"轮速结果为空"<<endl;
+//        if(pKFi->mpImuPreintegrated->encoder_velocity)
+//            cerr<<"轮速结果"<<pKFi->mpImuPreintegrated->encoder_velocity<<endl;
+//        else
+//            cerr<<"轮速结果为空"<<endl;
 
 
         if ((pKFi->GetGyroBias() - bg.cast<float>()).norm() > 0.01)
@@ -4059,10 +4062,10 @@ void Optimizer::InertialOptimization(Map *pMap, Eigen::Vector3d &bg, Eigen::Vect
         VertexVelocity *VV = static_cast<VertexVelocity *>(optimizer.vertex(maxKFid + (pKFi->mnId) + 1));
         Eigen::Vector3d Vw = VV->estimate();
         pKFi->SetVelocity(Vw.cast<float>());
-        if(pKFi->mpImuPreintegrated->encoder_velocity)
-            cerr<<"轮速结果"<<pKFi->mpImuPreintegrated->encoder_velocity<<endl;
-        else
-            cerr<<"轮速结果为空"<<endl;
+//        if(pKFi->mpImuPreintegrated->encoder_velocity)
+//            cerr<<"轮速结果"<<pKFi->mpImuPreintegrated->encoder_velocity<<endl;
+//        else
+//            cerr<<"轮速结果为空"<<endl;
         if ((pKFi->GetGyroBias() - bg.cast<float>()).norm() > 0.01)
         {
             pKFi->SetNewBias(b);
@@ -6606,10 +6609,10 @@ void Optimizer::MergeInertialBA(
             VertexVelocity *VV = static_cast<VertexVelocity *>(optimizer.vertex(maxKFid + 3 * (pKFi->mnId) + 1));
             // 修改速度
             pKFi->SetVelocity(VV->estimate().cast<float>());
-            if(pKFi->mpImuPreintegrated->encoder_velocity)
-                cerr<<"轮速结果"<<pKFi->mpImuPreintegrated->encoder_velocity<<endl;
-            else
-                cerr<<"轮速结果为空"<<endl;
+//            if(pKFi->mpImuPreintegrated->encoder_velocity)
+//                cerr<<"轮速结果"<<pKFi->mpImuPreintegrated->encoder_velocity<<endl;
+//            else
+//                cerr<<"轮速结果为空"<<endl;
 
             // 陀螺仪bias
             VertexGyroBias *VG = static_cast<VertexGyroBias *>(optimizer.vertex(maxKFid + 3 * (pKFi->mnId) + 2));
@@ -6638,10 +6641,11 @@ void Optimizer::MergeInertialBA(
         {
             VertexVelocity *VV = static_cast<VertexVelocity *>(optimizer.vertex(maxKFid + 3 * (pKFi->mnId) + 1));
             pKFi->SetVelocity(VV->estimate().cast<float>());
-            if(pKFi->mpImuPreintegrated->encoder_velocity)
-                cerr<<"轮速结果"<<pKFi->mpImuPreintegrated->encoder_velocity<<endl;
-            else
-                cerr<<"轮速结果为空"<<endl;
+//            if(pKFi->mpImuPreintegrated->encoder_velocity)
+//                cerr<<"轮速结果"<<pKFi->mpImuPreintegrated->encoder_velocity<<endl;
+//            else
+//                cerr<<"轮速结果为空"<<endl;
+
 
             VertexGyroBias *VG = static_cast<VertexGyroBias *>(optimizer.vertex(maxKFid + 3 * (pKFi->mnId) + 2));
             VertexAccBias *VA = static_cast<VertexAccBias *>(optimizer.vertex(maxKFid + 3 * (pKFi->mnId) + 3));
