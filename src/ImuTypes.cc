@@ -381,8 +381,11 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
         // Step 2. 构造函数，会根据更新后的bias进行角度积分
         IntegratedRotation dRi(angVel, b, dt);
         // 强行归一化使其符合旋转矩阵的格式
+        auto dR_past = dR;
         dR = NormalizeRotation(dR * dRi.deltaR);
 
+        std::cerr<<"dR_past"<<dR_past<<std::endl;
+        std::cerr<<"dR"<<dR<<std::endl;
         // Compute rotation parts of matrices A and B
         // 补充AB矩阵
         A.block<3, 3>(0, 0) = dRi.deltaR.transpose();
@@ -404,6 +407,39 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
         // Total integrated time
         // 更新总时间
         dT += dt;
+
+        bool buseencoder;
+        buseencoder = true;
+
+        if(buseencoder){
+            Eigen::MatrixXf F = Eigen::MatrixXf ::Zero(18,18);
+            F.block<3,3>(0,0) = Eigen::Matrix3f::Identity();
+            F.block<3,3>(0,3) = A.block<3, 3>(6, 0);
+            F.block<3,3>(0,6) = Eigen::DiagonalMatrix<float, 3>(dt, dt, dt);
+
+            F.block<3,3>(3,3) = dRi.deltaR.transpose();
+
+            F.block<3,3>(6,3) = A.block<3, 3>(3, 0);
+            F.block<3,3>(6,6) = Eigen::Matrix3f::Identity();
+
+            //轮速
+            Eigen::Matrix3f Rbo = Eigen::Matrix3f::Identity();
+            Eigen::Vector3f encoder_vo={encoder_velocity,0,0};
+            Eigen::Vector3f encoder_fi = Rbo*encoder_vo;
+            Eigen::Matrix3f R_encoder;
+            R_encoder<< 0, -encoder_fi(2), encoder_fi(1),encoder_fi(2), 0, -encoder_fi(0),-encoder_fi(1), encoder_fi(0), 0;
+            F.block<3,3>(9,3) =-dR_past*dt*R_encoder;
+            F.block<3,3>(9,9) = Eigen::Matrix3f::Identity();
+
+
+            Eigen::MatrixXf V = Eigen::MatrixXf ::Zero(18,15);
+            V.block<3,3>(0,0) = 0.5f * dR_past * dt * dt;
+            V.block<3,3>(3,3) =dRi.rightJ * dt;
+            V.block<3,3>(6,0) = dR_past * dt;
+            V.block<3,3>(9,6) = dR_past*Rbo*dt;
+
+
+        }
     }
 
 /** 

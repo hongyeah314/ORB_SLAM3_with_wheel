@@ -224,6 +224,8 @@ public:
     Eigen::Matrix3f JRg, JVg, JVa, JPg, JPa;
     Eigen::Vector3f avgA, avgW;
     double encoder_velocity = 0;
+    Eigen::Matrix<float,18,18> jacobian_enc;
+    Eigen::Matrix<float,18,18> covariance_enc;
 
 
 private:
