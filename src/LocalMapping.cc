@@ -1594,6 +1594,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
             // 求取实际的速度，位移/时间
             Eigen::Vector3f _vel = ((*itKF)->GetImuPosition() - (*itKF)->mPrevKF->GetImuPosition())/(*itKF)->mpImuPreintegrated->dT;
             (*itKF)->SetVelocity(_vel);
+            cerr<<"初始化IMU：他的轮速是： "<<(*itKF)->mpImuPreintegrated->encoder_velocity<<endl;
             (*itKF)->mPrevKF->SetVelocity(_vel);
         }
 

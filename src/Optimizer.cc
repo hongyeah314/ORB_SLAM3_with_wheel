@@ -3848,7 +3848,7 @@ void Optimizer::InertialOptimization(
     // Compute error for different scales
     std::set<g2o::HyperGraph::Edge *> setEdges = optimizer.edges();
 
-    optimizer.setVerbose(false);
+    optimizer.setVerbose(true);
     optimizer.initializeOptimization();
     optimizer.optimize(its);
 

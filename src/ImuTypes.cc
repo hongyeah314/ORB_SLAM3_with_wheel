@@ -410,7 +410,7 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
 
         bool buseencoder;
         buseencoder = true;
-
+// TODO
         if(buseencoder){
             Eigen::MatrixXf F = Eigen::MatrixXf ::Zero(18,18);
             F.block<3,3>(0,0) = Eigen::Matrix3f::Identity();
@@ -526,7 +526,9 @@ Eigen::Vector3f Preintegrated::GetDeltaVelocity(const Bias &b_)
     Eigen::Vector3f dbg, dba;
     dbg << b_.bwx - b.bwx, b_.bwy - b.bwy, b_.bwz - b.bwz;
     dba << b_.bax - b.bax, b_.bay - b.bay, b_.baz - b.baz;
-    // 考虑偏置后，dV对偏置线性化的近似求解,邱笑晨《预积分总结与公式推导》P13，JPg和JPa在预积分处理中更新 
+    // 考虑偏置后，dV对偏置线性化的近似求解,邱笑晨《预积分总结与公式推导》P13，JPg和JPa在预积分处理中更新
+    cerr<<"正在获取dV ："<<dV + JVg * dbg + JVa * dba<<endl;
+    cerr<<"实际轮速为： "<<encoder_velocity<<endl;
     return dV + JVg * dbg + JVa * dba;
 }
 

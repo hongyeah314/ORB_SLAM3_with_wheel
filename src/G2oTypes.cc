@@ -609,6 +609,7 @@ void EdgeInertial::computeError()
     const Eigen::Vector3d ev = VP1->estimate().Rwb.transpose()*(VV2->estimate() - VV1->estimate() - g*dt) - dV;
     const Eigen::Vector3d ep = VP1->estimate().Rwb.transpose()*(VP2->estimate().twb - VP1->estimate().twb
                                                                - VV1->estimate()*dt - g*dt*dt/2) - dP;
+    const Eigen::Vector3d e_encoder =
 
     _error << er, ev, ep;
 }
