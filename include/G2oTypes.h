@@ -729,6 +729,102 @@ public:
         return J.transpose() * information() * J;
     }
 };
+/**
+ * @brief 初始化惯性边（误差为残差、加入轮速）
+ */
+class EdgeInertialGSE : public g2o::BaseMultiEdge<9, Vector9d>
+    {
+    public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+        // EdgeInertialGS(IMU::Preintegrated* pInt);
+        EdgeInertialGSE(IMU::Preintegrated *pInt);
+
+        virtual bool read(std::istream &is) { return false; }
+        virtual bool write(std::ostream &os) const { return false; }
+
+        void computeError();
+        virtual void linearizeOplus();
+
+        const Eigen::Matrix3d JRg, JVg, JPg;
+        const Eigen::Matrix3d JVa, JPa;
+        IMU::Preintegrated *mpInt;
+        const double dt;
+        Eigen::Vector3d g, gI;
+
+        // 关于pose1与2 的旋转平移速度，以及之间的偏置，还有重力方向与尺度的信息矩阵
+        Eigen::Matrix<double, 27, 27> GetHessian()
+        {
+            linearizeOplus();
+            Eigen::Matrix<double, 9, 27> J;
+            J.block<9, 6>(0, 0) = _jacobianOplus[0];
+            J.block<9, 3>(0, 6) = _jacobianOplus[1];
+            J.block<9, 3>(0, 9) = _jacobianOplus[2];
+            J.block<9, 3>(0, 12) = _jacobianOplus[3];
+            J.block<9, 6>(0, 15) = _jacobianOplus[4];
+            J.block<9, 3>(0, 21) = _jacobianOplus[5];
+            J.block<9, 2>(0, 24) = _jacobianOplus[6];
+            J.block<9, 1>(0, 26) = _jacobianOplus[7];
+            return J.transpose() * information() * J;
+        }
+
+        // 与上面摆放不同
+        Eigen::Matrix<double, 27, 27> GetHessian2()
+        {
+            linearizeOplus();
+            Eigen::Matrix<double, 9, 27> J;
+            J.block<9, 3>(0, 0) = _jacobianOplus[2];
+            J.block<9, 3>(0, 3) = _jacobianOplus[3];
+            J.block<9, 2>(0, 6) = _jacobianOplus[6];
+            J.block<9, 1>(0, 8) = _jacobianOplus[7];
+            J.block<9, 3>(0, 9) = _jacobianOplus[1];
+            J.block<9, 3>(0, 12) = _jacobianOplus[5];
+            J.block<9, 6>(0, 15) = _jacobianOplus[0];
+            J.block<9, 6>(0, 21) = _jacobianOplus[4];
+            return J.transpose() * information() * J;
+        }
+
+        // 关于偏置，重力方向与尺度的信息矩阵
+        Eigen::Matrix<double, 9, 9> GetHessian3()
+        {
+            linearizeOplus();
+            Eigen::Matrix<double, 9, 9> J;
+            J.block<9, 3>(0, 0) = _jacobianOplus[2];
+            J.block<9, 3>(0, 3) = _jacobianOplus[3];
+            J.block<9, 2>(0, 6) = _jacobianOplus[6];
+            J.block<9, 1>(0, 8) = _jacobianOplus[7];
+            return J.transpose() * information() * J;
+        }
+
+        // 下面的没有用到，其实也是获取状态的信息矩阵
+        Eigen::Matrix<double, 1, 1> GetHessianScale()
+        {
+            linearizeOplus();
+            Eigen::Matrix<double, 9, 1> J = _jacobianOplus[7];
+            return J.transpose() * information() * J;
+        }
+
+        Eigen::Matrix<double, 3, 3> GetHessianBiasGyro()
+        {
+            linearizeOplus();
+            Eigen::Matrix<double, 9, 3> J = _jacobianOplus[2];
+            return J.transpose() * information() * J;
+        }
+
+        Eigen::Matrix<double, 3, 3> GetHessianBiasAcc()
+        {
+            linearizeOplus();
+            Eigen::Matrix<double, 9, 3> J = _jacobianOplus[3];
+            return J.transpose() * information() * J;
+        }
+
+        Eigen::Matrix<double, 2, 2> GetHessianGDir()
+        {
+            linearizeOplus();
+            Eigen::Matrix<double, 9, 2> J = _jacobianOplus[6];
+            return J.transpose() * information() * J;
+        }
+    };
 
 /** 
  * @brief 陀螺仪偏置的二元边，除了残差及重投影误差外的第三个边，控制偏置变化

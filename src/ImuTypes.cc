@@ -350,13 +350,13 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
         // 记录平均加速度和角速度
         avgA = (dT * avgA + dR * acc * dt) / (dT + dt);
         avgW = (dT * avgW + accW * dt) / (dT + dt);
-        encoder_velocity = (dT*encoder_velocity+encoder_v*dt)/ (dT + dt);
+
 
         // Update delta position dP and velocity dV (rely on no-updated delta rotation)
         // 根据没有更新的dR来更新dP与dV  eq.(38)
         dP = dP + dV * dt + 0.5f * dR * acc * dt * dt;
         dV = dV + dR * acc * dt;
-
+        encoder_velocity = encoder_velocity + dR*Rbo*encoder_v*dt;
 
 
         // Compute velocity and position parts of matrices A and B (rely on non-updated delta rotation)
@@ -423,7 +423,6 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
             F.block<3,3>(6,6) = Eigen::Matrix3f::Identity();
 
             //轮速
-            Eigen::Matrix3f Rbo = Eigen::Matrix3f::Identity();
             Eigen::Vector3f encoder_vo={encoder_velocity,0,0};
             Eigen::Vector3f encoder_fi = Rbo*encoder_vo;
             Eigen::Matrix3f R_encoder;
@@ -527,8 +526,8 @@ Eigen::Vector3f Preintegrated::GetDeltaVelocity(const Bias &b_)
     dbg << b_.bwx - b.bwx, b_.bwy - b.bwy, b_.bwz - b.bwz;
     dba << b_.bax - b.bax, b_.bay - b.bay, b_.baz - b.baz;
     // 考虑偏置后，dV对偏置线性化的近似求解,邱笑晨《预积分总结与公式推导》P13，JPg和JPa在预积分处理中更新
-    cerr<<"正在获取dV ："<<dV + JVg * dbg + JVa * dba<<endl;
-    cerr<<"实际轮速为： "<<encoder_velocity<<endl;
+    std::cerr<<"正在获取dV ："<<dV + JVg * dbg + JVa * dba<<std::endl;
+    std::cerr<<"实际轮速为： "<<encoder_velocity<<std::endl;
     return dV + JVg * dbg + JVa * dba;
 }
 

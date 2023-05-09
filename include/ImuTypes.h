@@ -221,6 +221,8 @@ public:
     Bias b;
     Eigen::Matrix3f dR;
     Eigen::Vector3f dV, dP;
+    Eigen::Matrix3f Rbo = Eigen::Matrix3f::Identity();   //encoder 和imu的旋转
+    Eigen::Vector3d Tbo = {0,0,0};   //encoder 和imu的旋转
     Eigen::Matrix3f JRg, JVg, JVa, JPg, JPa;
     Eigen::Vector3f avgA, avgW;
     double encoder_velocity = 0;
