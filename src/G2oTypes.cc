@@ -888,7 +888,7 @@ void EdgeInertialGSE::computeError()
         const Eigen::Vector3d er = LogSO3(dR.transpose()*VP1->estimate().Rwb.transpose()*VP2->estimate().Rwb);
         const Eigen::Vector3d ev = VP1->estimate().Rwb.transpose()*(s*(VV2->estimate() - VV1->estimate()) - g*dt) - dV;
         const Eigen::Vector3d ep = VP1->estimate().Rwb.transpose()*(s*(VP2->estimate().twb - VP1->estimate().twb - VV1->estimate()*dt) - g*dt*dt/2) - dP;
-        const Eigen::Vector3d ee =  VP1->estimate().Rwb.transpose()*(s*(VP2->estimate().twb - VP1->estimate().twb)-mpInt->Tbo+VP1->estimate().Rwb.transpose()*VP2->estimate().Rwb*mpInt->Tbo-)
+        const Eigen::Vector3d ee =  VP1->estimate().Rwb.transpose()*(s*(VP2->estimate().twb - VP1->estimate().twb)-mpInt->Tbo+VP1->estimate().Rwb.transpose()*VP2->estimate().Rwb*mpInt->Tbo-mpInt->encoder_velocity.cast<double>());
 
         _error << er, ev, ep;
     }

@@ -2768,7 +2768,7 @@ void Optimizer::LocalInertialBA(
         {
             VertexVelocity *VV = static_cast<VertexVelocity *>(optimizer.vertex(maxKFid + 3 * (pKFi->mnId) + 1));
             pKFi->SetVelocity(VV->estimate().cast<float>());
-            if(pKFi->mpImuPreintegrated->encoder_velocity)
+            if(pKFi->mpImuPreintegrated->encoder_velocity(0))
                 cerr<<"轮速结果"<<pKFi->mpImuPreintegrated->encoder_velocity<<endl;
             else
                 cerr<<"轮速结果为空"<<endl;
