@@ -225,7 +225,7 @@ public:
     Eigen::Vector3d Tbo = {0,0,0};   //encoder 和imu的旋转
     Eigen::Matrix3f JRg, JVg, JVa, JPg, JPa;
     Eigen::Vector3f avgA, avgW;
-    double encoder_velocity = 0;
+    Eigen::Vector3f encoder_velocity ;
     Eigen::Matrix<float,18,18> jacobian_enc;
     Eigen::Matrix<float,18,18> covariance_enc;
 

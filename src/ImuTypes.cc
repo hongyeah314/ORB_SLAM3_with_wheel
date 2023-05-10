@@ -356,7 +356,8 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
         // 根据没有更新的dR来更新dP与dV  eq.(38)
         dP = dP + dV * dt + 0.5f * dR * acc * dt * dt;
         dV = dV + dR * acc * dt;
-        encoder_velocity = encoder_velocity + dR*Rbo*encoder_v*dt;
+        Eigen::Vector3f encoder_cast = { static_cast<float>(encoder_v),0,0};
+        encoder_velocity = encoder_velocity + dR*Rbo* encoder_cast*dt;
 
 
         // Compute velocity and position parts of matrices A and B (rely on non-updated delta rotation)
@@ -423,8 +424,8 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
             F.block<3,3>(6,6) = Eigen::Matrix3f::Identity();
 
             //轮速
-            Eigen::Vector3f encoder_vo={encoder_velocity,0,0};
-            Eigen::Vector3f encoder_fi = Rbo*encoder_vo;
+
+            Eigen::Vector3f encoder_fi = Rbo*encoder_velocity;
             Eigen::Matrix3f R_encoder;
             R_encoder<< 0, -encoder_fi(2), encoder_fi(1),encoder_fi(2), 0, -encoder_fi(0),-encoder_fi(1), encoder_fi(0), 0;
             F.block<3,3>(9,3) =-dR_past*dt*R_encoder;
