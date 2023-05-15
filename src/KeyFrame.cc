@@ -131,8 +131,8 @@ void KeyFrame::SetVelocity(const Eigen::Vector3f &Vw)
     unique_lock<mutex> lock(mMutexPose);
     mVw = Vw;
     mbHasVelocity = true;
-    std::cerr<<"目前正在向关键帧设置速度"<<std::endl;
-    std::cerr<<"优化结果为::"<<mVw<<endl;
+    //std::cerr<<"目前正在向关键帧设置速度"<<std::endl;
+    //std::cerr<<"优化结果为::"<<mVw<<endl;
 }
 
 // 获取位姿

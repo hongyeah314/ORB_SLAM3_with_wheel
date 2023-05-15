@@ -1873,7 +1873,7 @@ void Tracking::PreintegrateIMU()
         // 应该是必存在的吧，一个是相对上一关键帧，一个是相对上一帧
         if (!mpImuPreintegratedFromLastKF)
             cout << "mpImuPreintegratedFromLastKF does not exist" << endl;
-        cerr<<"当前的轮速为： "<< encoder_v<<endl;
+        //cerr<<"当前的轮速为： "<< encoder_v<<endl;
         bool buseencoder;
         buseencoder = true;
         if(buseencoder){
@@ -2006,7 +2006,7 @@ void Tracking::Track()
     // Step 1 如局部建图里认为IMU有问题，重置当前活跃地图
     if(mpLocalMapper->mbBadImu)
     {
-        cout << "TRACK: Reset map because local mapper set the bad imu flag " << endl;
+        cerr << "TRACK: Reset map because local mapper set the bad imu flag " << endl;
         mpSystem->ResetActiveMap();
         return;
     }
@@ -2284,6 +2284,7 @@ void Tracking::Track()
                     if (pCurrentMap->KeyFramesInMap()<10)
                     {
                         // 当前地图中关键帧数目小于10，重置当前地图
+                        cerr<<"当前地图中关键帧数目小于10，重置当前地图"<<endl;
                         mpSystem->ResetActiveMap();
                         Verbose::PrintMess("Reseting current map...", Verbose::VERBOSITY_NORMAL);
                     }else
@@ -2427,7 +2428,7 @@ void Tracking::Track()
                 bOK = TrackLocalMap();
             }
             if(!bOK)
-                cout << "Fail to track local map!" << endl;
+                cerr << "Fail to track local map!" << endl;
         }
         else
         {
@@ -2469,7 +2470,7 @@ void Tracking::Track()
                 {
                     // IMU模式下IMU没有成功初始化或者没有完成IMU BA，则重置当前地图
                     cerr<<"IMU模式下IMU成功初始化"<<pCurrentMap->isImuInitialized()<<endl;
-                    cerr<<"完成IMU BA"<<pCurrentMap->GetIniertialBA2()<<endl;
+                    cerr<<"完成IMU BA "<<pCurrentMap->GetIniertialBA2()<<endl;
                     cerr << "IMU is not or recently initialized. Reseting active map..." << endl;
                     mpSystem->ResetActiveMap();
                 }
@@ -2637,6 +2638,7 @@ void Tracking::Track()
             // 如果地图中关键帧小于10，重置当前地图，退出当前跟踪
             if(pCurrentMap->KeyFramesInMap()<=10)  // 上一个版本这里是5
             {
+                cerr<<"如果地图中关键帧小于10，重置当前地图，退出当前跟踪"<<endl;
                 mpSystem->ResetActiveMap();
                 return;
             }
@@ -2645,6 +2647,7 @@ void Tracking::Track()
                 {
                     // 如果是IMU模式并且还未进行IMU初始化，重置当前地图，退出当前跟踪
                     Verbose::PrintMess("Track lost before IMU initialisation, reseting...", Verbose::VERBOSITY_QUIET);
+                    cerr<<"// 如果是IMU模式并且还未进行IMU初始化，重置当前地图，退出当前跟踪"<<endl;
                     mpSystem->ResetActiveMap();
                     return;
                 }
@@ -3054,6 +3057,7 @@ void Tracking::CreateInitialMapMonocular()
     if(medianDepth<0 || pKFcur->TrackedMapPoints(1)<50) // TODO Check, originally 100 tracks
     {
         Verbose::PrintMess("Wrong initialization, reseting...", Verbose::VERBOSITY_QUIET);
+        cerr<<"Wrong initialization: 两个条件,一个是平均深度要大于0,另外一个是在当前帧中被观测到的地图点的数目应该大于50"<<endl;
         mpSystem->ResetActiveMap();
         return;
     }

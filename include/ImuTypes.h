@@ -216,6 +216,7 @@ public:
     Eigen::Matrix<float,15,15> C;
     Eigen::Matrix<float,15,15> Info;
     Eigen::DiagonalMatrix<float,6> Nga, NgaWalk;
+    Eigen::DiagonalMatrix<float,9> Nga_en, NgaWalk_en;
 
     // Values for the original bias (when integration was computed)
     Bias b;
@@ -227,7 +228,7 @@ public:
     Eigen::Vector3f avgA, avgW;
     Eigen::Vector3f encoder_velocity ;
     Eigen::Matrix<float,18,18> jacobian_enc;
-    Eigen::Matrix<float,18,18> covariance_enc;
+    Eigen::Matrix<float,21,21> covariance_enc;
 
 
 private:
@@ -250,6 +251,8 @@ private:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         integrable(){}
         integrable(const Eigen::Vector3f &a_, const Eigen::Vector3f &w_ , const float &t_):a(a_),w(w_),t(t_){}
+        integrable(const Eigen::Vector3f &a_, const Eigen::Vector3f &w_ , const float &t_, const double &enc_):a(a_),w(w_),t(t_),enc(enc_){}
+        double enc;
         Eigen::Vector3f a, w;
         float t;
     };

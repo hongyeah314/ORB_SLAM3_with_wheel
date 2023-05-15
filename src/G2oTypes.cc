@@ -850,13 +850,13 @@ EdgeInertialGSE::EdgeInertialGSE(IMU::Preintegrated *pInt):JRg(pInt->JRg.cast<do
         gI << 0, 0, -IMU::GRAVITY_VALUE;
 
         // 2. 读取协方差矩阵的前9*9部分的逆矩阵，该部分表示的是预积分测量噪声的协方差矩阵
-        Matrix9d Info = pInt->C.block<9,9>(0,0).cast<double>().inverse();
+        Matrix12d Info = pInt->covariance_enc.block<12,12>(0,0).cast<double>().inverse();
         // 3. 强制让其成为对角矩阵
         Info = (Info+Info.transpose())/2;
-        Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double,9,9> > es(Info);
+        Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double,12,12> > es(Info);
         // 4. 让特征值很小的时候置为0，再重新计算信息矩阵（暂不知这么操作的目的是什么，先搞清楚操作流程吧）
-        Eigen::Matrix<double,9,1> eigs = es.eigenvalues();
-        for(int i=0;i<9;i++)
+        Eigen::Matrix<double,12,1> eigs = es.eigenvalues();
+        for(int i=0;i<12;i++)
             if(eigs[i]<1e-12)
                 eigs[i]=0;
         // asDiagonal 生成对角矩阵
@@ -882,15 +882,15 @@ void EdgeInertialGSE::computeError()
         const Eigen::Matrix3d dR = mpInt->GetDeltaRotation(b).cast<double>();
         const Eigen::Vector3d dV = mpInt->GetDeltaVelocity(b).cast<double>();
         const Eigen::Vector3d dP = mpInt->GetDeltaPosition(b).cast<double>();
-
+        //注：轮速不需要计算对bais的零偏更新
         // 计算残差。广义上讲都是真实值 = 残差 + imu，旋转为imu*残差=真实值
         // dR.transpose() 为imu预积分的值，VP1->estimate().Rwb.transpose() * VP2->estimate().Rwb 为相机的Rwc在乘上相机与imu的标定外参矩阵
         const Eigen::Vector3d er = LogSO3(dR.transpose()*VP1->estimate().Rwb.transpose()*VP2->estimate().Rwb);
         const Eigen::Vector3d ev = VP1->estimate().Rwb.transpose()*(s*(VV2->estimate() - VV1->estimate()) - g*dt) - dV;
         const Eigen::Vector3d ep = VP1->estimate().Rwb.transpose()*(s*(VP2->estimate().twb - VP1->estimate().twb - VV1->estimate()*dt) - g*dt*dt/2) - dP;
         const Eigen::Vector3d ee =  VP1->estimate().Rwb.transpose()*(s*(VP2->estimate().twb - VP1->estimate().twb)-mpInt->Tbo+VP1->estimate().Rwb.transpose()*VP2->estimate().Rwb*mpInt->Tbo-mpInt->encoder_velocity.cast<double>());
-
-        _error << er, ev, ep;
+        //std::cerr<<"encoder 的更新误差为： "<<ee<<std::endl;
+        _error << er, ev, ep, ee;
     }
 
 // 计算雅克比矩阵
@@ -926,9 +926,21 @@ void EdgeInertialGSE::linearizeOplus()
         const Eigen::Vector3d er = LogSO3(eR);                      // r△φij
         const Eigen::Matrix3d invJr = InverseRightJacobianSO3(er);  // Jr^-1(log(△Rij))
 
+
+
+//        const Eigen::Vector3d er = LogSO3(dR.transpose()*VP1->estimate().Rwb.transpose()*VP2->estimate().Rwb);
+//        const Eigen::Vector3d ev = VP1->estimate().Rwb.transpose()*(s*(VV2->estimate() - VV1->estimate()) - g*dt) - dV;
+//        const Eigen::Vector3d ep = VP1->estimate().Rwb.transpose()*(s*(VP2->estimate().twb - VP1->estimate().twb - VV1->estimate()*dt) - g*dt*dt/2) - dP;
+//        const Eigen::Vector3d ee =  VP1->estimate().Rwb.transpose()*(s*(VP2->estimate().twb - VP1->estimate().twb)-mpInt->Tbo
+//        + VP1->estimate().Rwb.transpose()*VP2->estimate().Rwb*mpInt->Tbo-mpInt->encoder_velocity.cast<double>());
+
         // 就很神奇，_jacobianOplus个数等于边的个数，里面的大小等于观测值维度（也就是残差）× 每个节点待优化值的维度
         // Jacobians wrt Pose 1
-        // _jacobianOplus[0] 9*6矩阵 总体来说就是三个残差分别对pose1的旋转与平移（p）求导
+        // _jacobianOplus[0] 12*6矩阵 总体来说就是4个残差分别对pose1的旋转与平移（p）求导
+//        cerr<<"开始计算雅克比矩阵 "<<endl;
+//        for(auto jac:_jacobianOplus){
+//            cerr<<jac.innerSize()<<"  "<<jac.outerSize()<<endl;
+//        }
         _jacobianOplus[0].setZero();
         // rotation
         // (0,0)起点的3*3块表示旋转残差对pose1的旋转求导
@@ -937,54 +949,72 @@ void EdgeInertialGSE::linearizeOplus()
         _jacobianOplus[0].block<3,3>(3,0) = Sophus::SO3d::hat(Rbw1*(s*(VV2->estimate() - VV1->estimate()) - g*dt));
         // (6,0)起点的3*3块表示位置残差对pose1的旋转求导
         _jacobianOplus[0].block<3,3>(6,0) = Sophus::SO3d::hat(Rbw1*(s*(VP2->estimate().twb - VP1->estimate().twb
-                                                                       - VV1->estimate()*dt) - 0.5*g*dt*dt));
+                                                         - VV1->estimate()*dt) - 0.5*g*dt*dt));
+        // (9,0)起点的3*3块表示轮速残差对pose1的旋转求导
+        _jacobianOplus[0].block<3,3>(9,0) = Sophus::SO3d::hat(Rbw1*((s*(VP2->estimate().twb - VP1->estimate().twb))+VP2->estimate().Rwb*mpInt->Tbo));
+
         // translation
         // (6,3)起点的3*3块表示位置残差对pose1的位置求导
         _jacobianOplus[0].block<3,3>(6,3) = Eigen::DiagonalMatrix<double,3>(-s,-s,-s);
+        // (9,3)起点的3*3块表示轮速残差对pose1的位置求导
+        _jacobianOplus[0].block<3,3>(9,3) = Eigen::DiagonalMatrix<double,3>(-s,-s,-s);
 
+        //cerr<<"矩阵0 没问题"<<endl;
         // Jacobians wrt Velocity 1
         // _jacobianOplus[1] 9*3矩阵 总体来说就是三个残差分别对pose1的速度求导
         _jacobianOplus[1].setZero();
         _jacobianOplus[1].block<3,3>(3,0) = -s*Rbw1;
         _jacobianOplus[1].block<3,3>(6,0) = -s*Rbw1*dt;
 
+        //cerr<<"矩阵1 没问题"<<endl;
         // Jacobians wrt Gyro bias
         // _jacobianOplus[2] 9*3矩阵 总体来说就是三个残差分别对陀螺仪偏置的速度求导
         _jacobianOplus[2].setZero();
         _jacobianOplus[2].block<3,3>(0,0) = -invJr*eR.transpose()*RightJacobianSO3(JRg*dbg)*JRg;
         _jacobianOplus[2].block<3,3>(3,0) = -JVg;
         _jacobianOplus[2].block<3,3>(6,0) = -JPg;
-
+        //cerr<<"矩阵2 没问题"<<endl;
         // Jacobians wrt Accelerometer bias
         // _jacobianOplus[3] 9*3矩阵 总体来说就是三个残差分别对加速度计偏置的速度求导
         _jacobianOplus[3].setZero();
         _jacobianOplus[3].block<3,3>(3,0) = -JVa;
         _jacobianOplus[3].block<3,3>(6,0) = -JPa;
+        //cerr<<"矩阵3 没问题"<<endl;
+        //        const Eigen::Vector3d er = LogSO3(dR.transpose()*VP1->estimate().Rwb.transpose()*VP2->estimate().Rwb);
+//        const Eigen::Vector3d ev = VP1->estimate().Rwb.transpose()*(s*(VV2->estimate() - VV1->estimate()) - g*dt) - dV;
+//        const Eigen::Vector3d ep = VP1->estimate().Rwb.transpose()*(s*(VP2->estimate().twb - VP1->estimate().twb - VV1->estimate()*dt) - g*dt*dt/2) - dP;
+//        const Eigen::Vector3d ee =  VP1->estimate().Rwb.transpose()*(s*(VP2->estimate().twb - VP1->estimate().twb)-mpInt->Tbo
+//        + VP1->estimate().Rwb.transpose()*VP2->estimate().Rwb*mpInt->Tbo-mpInt->encoder_velocity.cast<double>());
 
         // Jacobians wrt Pose 2
         // _jacobianOplus[3] 9*6矩阵 总体来说就是三个残差分别对pose2的旋转与平移（p）求导
         _jacobianOplus[4].setZero();
         // rotation
         _jacobianOplus[4].block<3,3>(0,0) = invJr;
+        _jacobianOplus[4].block<3,3>(9,0)= -VP1->estimate().Rwb.transpose()*VP2->estimate().Rwb*Sophus::SO3d::hat(mpInt->Tbo);
         // translation
         _jacobianOplus[4].block<3,3>(6,3) = s*Rbw1*Rwb2;
-
+        _jacobianOplus[4].block<3,3>(9,3) = s*Rbw1*Rwb2;
+        //cerr<<"矩阵4 没问题"<<endl;
         // Jacobians wrt Velocity 2
         // _jacobianOplus[3] 9*3矩阵 总体来说就是三个残差分别对pose2的速度求导
         _jacobianOplus[5].setZero();
         _jacobianOplus[5].block<3,3>(3,0) = s*Rbw1;
-
+        //cerr<<"矩阵5 没问题"<<endl;
         // Jacobians wrt Gravity direction
         // _jacobianOplus[3] 9*2矩阵 总体来说就是三个残差分别对重力方向求导
         _jacobianOplus[6].setZero();
         _jacobianOplus[6].block<3,2>(3,0) = -Rbw1*dGdTheta*dt;
         _jacobianOplus[6].block<3,2>(6,0) = -0.5*Rbw1*dGdTheta*dt*dt;
-
+        //cerr<<"矩阵6 没问题"<<endl;
         // Jacobians wrt scale factor
         // _jacobianOplus[3] 9*1矩阵 总体来说就是三个残差分别对尺度求导
         _jacobianOplus[7].setZero();
         _jacobianOplus[7].block<3,1>(3,0) = Rbw1*(VV2->estimate()-VV1->estimate()) * s;
+        //cerr<<"矩阵7 没问题"<<endl;
         _jacobianOplus[7].block<3,1>(6,0) = Rbw1*(VP2->estimate().twb-VP1->estimate().twb-VV1->estimate()*dt) * s;
+        _jacobianOplus[7].block<3,1>(9,0) =Rbw1*(VP2->estimate().twb-VP1->estimate().twb) * s;
+       // cerr<<"矩阵8 没问题"<<endl;
     }
 
 

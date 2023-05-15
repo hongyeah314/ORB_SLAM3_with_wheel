@@ -160,6 +160,8 @@ Preintegrated::Preintegrated(const Bias &b_, const Calib &calib)
 {
     Nga = calib.Cov;
     NgaWalk = calib.CovWalk;
+    Nga_en.diagonal()<<Nga.diagonal(),0.01,0.01,0.01;
+    NgaWalk_en.diagonal()<<NgaWalk.diagonal(),0.01,0.01,0.01;
     Initialize(b_);
 }
 
@@ -217,6 +219,9 @@ void Preintegrated::Initialize(const Bias &b_)
     C.setZero();
     Info.setZero();
     db.setZero();
+    encoder_velocity.setZero();
+    jacobian_enc.setZero();
+    covariance_enc.setZero();
     b = b_;
     bu = b_;  // 更新后的偏置
     avgA.setZero();  // 平均加速度
@@ -232,9 +237,17 @@ void Preintegrated::Reintegrate()
 {
     std::unique_lock<std::mutex> lock(mMutex);
     const std::vector<integrable> aux = mvMeasurements;
+    //重新进行预积分
     Initialize(bu);
+    bool buseencoder;
+    buseencoder = true;
+    if(buseencoder){
+        for (size_t i = 0; i < aux.size(); i++)
+            IntegrateNewMeasurement(aux[i].a, aux[i].w, aux[i].t,aux[i].enc);
+    }
+    else{
     for (size_t i = 0; i < aux.size(); i++)
-        IntegrateNewMeasurement(aux[i].a, aux[i].w, aux[i].t);
+        IntegrateNewMeasurement(aux[i].a, aux[i].w, aux[i].t);}
 }
 
 /**
@@ -327,7 +340,7 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
 void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration, const Eigen::Vector3f &angVel, const float &dt,const double &encoder_v)
     {
         // 保存imu数据，利用中值积分的结果构造一个预积分类保存在mvMeasurements中
-        mvMeasurements.push_back(integrable(acceleration, angVel, dt));
+        mvMeasurements.push_back(integrable(acceleration, angVel, dt,encoder_v));
 
         // Position is updated firstly, as it depends on previously computed velocity and rotation.
         // Velocity is updated secondly, as it depends on previously computed rotation.
@@ -358,6 +371,7 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
         dV = dV + dR * acc * dt;
         Eigen::Vector3f encoder_cast = { static_cast<float>(encoder_v),0,0};
         encoder_velocity = encoder_velocity + dR*Rbo* encoder_cast*dt;
+        //std::cerr<<"encoder_velocity "<<encoder_velocity;
 
 
         // Compute velocity and position parts of matrices A and B (rely on non-updated delta rotation)
@@ -385,8 +399,8 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
         auto dR_past = dR;
         dR = NormalizeRotation(dR * dRi.deltaR);
 
-        std::cerr<<"dR_past"<<dR_past<<std::endl;
-        std::cerr<<"dR"<<dR<<std::endl;
+        //std::cerr<<"dR_past"<<dR_past<<std::endl;
+        //std::cerr<<"dR"<<dR<<std::endl;
         // Compute rotation parts of matrices A and B
         // 补充AB矩阵
         A.block<3, 3>(0, 0) = dRi.deltaR.transpose();
@@ -413,30 +427,42 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
         buseencoder = true;
 // TODO
         if(buseencoder){
-            Eigen::MatrixXf F = Eigen::MatrixXf ::Zero(18,18);
-            F.block<3,3>(0,0) = Eigen::Matrix3f::Identity();
-            F.block<3,3>(0,3) = A.block<3, 3>(6, 0);
-            F.block<3,3>(0,6) = Eigen::DiagonalMatrix<float, 3>(dt, dt, dt);
-
-            F.block<3,3>(3,3) = dRi.deltaR.transpose();
-
-            F.block<3,3>(6,3) = A.block<3, 3>(3, 0);
-            F.block<3,3>(6,6) = Eigen::Matrix3f::Identity();
+            Eigen::MatrixXf F = Eigen::MatrixXf ::Zero(12,12);
+//            F.block<3,3>(0,0) = Eigen::Matrix3f::Identity();
+//            F.block<3,3>(0,3) = A.block<3, 3>(6, 0);
+//            F.block<3,3>(0,6) = Eigen::DiagonalMatrix<float, 3>(dt, dt, dt);
+//
+//            F.block<3,3>(3,3) = dRi.deltaR.transpose();
+//
+//            F.block<3,3>(6,3) = A.block<3, 3>(3, 0);
+//            F.block<3,3>(6,6) = Eigen::Matrix3f::Identity();
 
             //轮速
 
             Eigen::Vector3f encoder_fi = Rbo*encoder_velocity;
             Eigen::Matrix3f R_encoder;
             R_encoder<< 0, -encoder_fi(2), encoder_fi(1),encoder_fi(2), 0, -encoder_fi(0),-encoder_fi(1), encoder_fi(0), 0;
-            F.block<3,3>(9,3) =-dR_past*dt*R_encoder;
+//            F.block<3,3>(9,3) =-dR_past*dt*R_encoder;
+//            F.block<3,3>(9,9) = Eigen::Matrix3f::Identity();
+
+
+            Eigen::MatrixXf V = Eigen::MatrixXf ::Zero(12,9);
+//            V.block<3,3>(0,0) = 0.5f * dR_past * dt * dt;
+//            V.block<3,3>(3,3) = dRi.rightJ * dt;
+//            V.block<3,3>(6,0) = dR_past * dt;
+//            V.block<3,3>(9,6) = dR_past*Rbo*dt;
+
+            F.block<9,9>(0,0) = A;
+            F.block<3,3>(9,3) = -dR_past*dt*R_encoder;
             F.block<3,3>(9,9) = Eigen::Matrix3f::Identity();
 
-
-            Eigen::MatrixXf V = Eigen::MatrixXf ::Zero(18,15);
-            V.block<3,3>(0,0) = 0.5f * dR_past * dt * dt;
-            V.block<3,3>(3,3) =dRi.rightJ * dt;
-            V.block<3,3>(6,0) = dR_past * dt;
+            V.block<9,6>(0,0) = B;
             V.block<3,3>(9,6) = dR_past*Rbo*dt;
+
+
+            covariance_enc.block<12,12>(0,0) = F*covariance_enc.block<12,12>(0,0)*F.transpose()+V*Nga_en*V.transpose();
+            covariance_enc.block<9,9>(12,12) += NgaWalk_en;
+
 
 
         }
@@ -464,11 +490,13 @@ void Preintegrated::MergePrevious(Preintegrated *pPrev)
     const std::vector<integrable> aux1 = pPrev->mvMeasurements;
     const std::vector<integrable> aux2 = mvMeasurements;
 
+
+    //TODO ::这里需要修改
     Initialize(bav);
     for (size_t i = 0; i < aux1.size(); i++)
-        IntegrateNewMeasurement(aux1[i].a, aux1[i].w, aux1[i].t);
+        IntegrateNewMeasurement(aux1[i].a, aux1[i].w, aux1[i].t,aux1[i].enc);
     for (size_t i = 0; i < aux2.size(); i++)
-        IntegrateNewMeasurement(aux2[i].a, aux2[i].w, aux2[i].t);
+        IntegrateNewMeasurement(aux2[i].a, aux2[i].w, aux2[i].t,aux2[i].enc);
 }
 
 /** 
@@ -527,8 +555,8 @@ Eigen::Vector3f Preintegrated::GetDeltaVelocity(const Bias &b_)
     dbg << b_.bwx - b.bwx, b_.bwy - b.bwy, b_.bwz - b.bwz;
     dba << b_.bax - b.bax, b_.bay - b.bay, b_.baz - b.baz;
     // 考虑偏置后，dV对偏置线性化的近似求解,邱笑晨《预积分总结与公式推导》P13，JPg和JPa在预积分处理中更新
-    std::cerr<<"正在获取dV ："<<dV + JVg * dbg + JVa * dba<<std::endl;
-    std::cerr<<"实际轮速为： "<<encoder_velocity<<std::endl;
+    //std::cerr<<"正在获取dV ："<<dV + JVg * dbg + JVa * dba<<std::endl;
+    //std::cerr<<"实际轮速为： "<<encoder_velocity<<std::endl;
     return dV + JVg * dbg + JVa * dba;
 }
 

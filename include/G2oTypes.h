@@ -732,7 +732,7 @@ public:
 /**
  * @brief 初始化惯性边（误差为残差、加入轮速）
  */
-class EdgeInertialGSE : public g2o::BaseMultiEdge<9, Vector9d>
+class EdgeInertialGSE : public g2o::BaseMultiEdge<12, Vector12d>
     {
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -756,15 +756,15 @@ class EdgeInertialGSE : public g2o::BaseMultiEdge<9, Vector9d>
         Eigen::Matrix<double, 27, 27> GetHessian()
         {
             linearizeOplus();
-            Eigen::Matrix<double, 9, 27> J;
-            J.block<9, 6>(0, 0) = _jacobianOplus[0];
-            J.block<9, 3>(0, 6) = _jacobianOplus[1];
-            J.block<9, 3>(0, 9) = _jacobianOplus[2];
-            J.block<9, 3>(0, 12) = _jacobianOplus[3];
-            J.block<9, 6>(0, 15) = _jacobianOplus[4];
-            J.block<9, 3>(0, 21) = _jacobianOplus[5];
-            J.block<9, 2>(0, 24) = _jacobianOplus[6];
-            J.block<9, 1>(0, 26) = _jacobianOplus[7];
+            Eigen::Matrix<double, 12, 27> J;
+            J.block<12, 6>(0, 0) = _jacobianOplus[0];
+            J.block<12, 3>(0, 6) = _jacobianOplus[1];
+            J.block<12, 3>(0, 9) = _jacobianOplus[2];
+            J.block<12, 3>(0, 12) = _jacobianOplus[3];
+            J.block<12, 6>(0, 15) = _jacobianOplus[4];
+            J.block<12, 3>(0, 21) = _jacobianOplus[5];
+            J.block<12, 2>(0, 24) = _jacobianOplus[6];
+            J.block<12, 1>(0, 26) = _jacobianOplus[7];
             return J.transpose() * information() * J;
         }
 
@@ -772,58 +772,58 @@ class EdgeInertialGSE : public g2o::BaseMultiEdge<9, Vector9d>
         Eigen::Matrix<double, 27, 27> GetHessian2()
         {
             linearizeOplus();
-            Eigen::Matrix<double, 9, 27> J;
-            J.block<9, 3>(0, 0) = _jacobianOplus[2];
-            J.block<9, 3>(0, 3) = _jacobianOplus[3];
-            J.block<9, 2>(0, 6) = _jacobianOplus[6];
-            J.block<9, 1>(0, 8) = _jacobianOplus[7];
-            J.block<9, 3>(0, 9) = _jacobianOplus[1];
-            J.block<9, 3>(0, 12) = _jacobianOplus[5];
-            J.block<9, 6>(0, 15) = _jacobianOplus[0];
-            J.block<9, 6>(0, 21) = _jacobianOplus[4];
+            Eigen::Matrix<double, 12, 27> J;
+            J.block<12, 3>(0, 0) = _jacobianOplus[2];
+            J.block<12, 3>(0, 3) = _jacobianOplus[3];
+            J.block<12, 2>(0, 6) = _jacobianOplus[6];
+            J.block<12, 1>(0, 8) = _jacobianOplus[7];
+            J.block<12, 3>(0, 9) = _jacobianOplus[1];
+            J.block<12, 3>(0, 12) = _jacobianOplus[5];
+            J.block<12, 6>(0, 15) = _jacobianOplus[0];
+            J.block<12, 6>(0, 21) = _jacobianOplus[4];
             return J.transpose() * information() * J;
         }
 
         // 关于偏置，重力方向与尺度的信息矩阵
-        Eigen::Matrix<double, 9, 9> GetHessian3()
+        Eigen::Matrix<double, 12, 12> GetHessian3()
         {
             linearizeOplus();
-            Eigen::Matrix<double, 9, 9> J;
-            J.block<9, 3>(0, 0) = _jacobianOplus[2];
-            J.block<9, 3>(0, 3) = _jacobianOplus[3];
-            J.block<9, 2>(0, 6) = _jacobianOplus[6];
-            J.block<9, 1>(0, 8) = _jacobianOplus[7];
+            Eigen::Matrix<double, 12, 12> J;
+            J.block<12, 3>(0, 0) = _jacobianOplus[2];
+            J.block<12, 3>(0, 3) = _jacobianOplus[3];
+            J.block<12, 2>(0, 6) = _jacobianOplus[6];
+            J.block<12, 1>(0, 8) = _jacobianOplus[7];
             return J.transpose() * information() * J;
         }
 
         // 下面的没有用到，其实也是获取状态的信息矩阵
-        Eigen::Matrix<double, 1, 1> GetHessianScale()
-        {
-            linearizeOplus();
-            Eigen::Matrix<double, 9, 1> J = _jacobianOplus[7];
-            return J.transpose() * information() * J;
-        }
-
-        Eigen::Matrix<double, 3, 3> GetHessianBiasGyro()
-        {
-            linearizeOplus();
-            Eigen::Matrix<double, 9, 3> J = _jacobianOplus[2];
-            return J.transpose() * information() * J;
-        }
-
-        Eigen::Matrix<double, 3, 3> GetHessianBiasAcc()
-        {
-            linearizeOplus();
-            Eigen::Matrix<double, 9, 3> J = _jacobianOplus[3];
-            return J.transpose() * information() * J;
-        }
-
-        Eigen::Matrix<double, 2, 2> GetHessianGDir()
-        {
-            linearizeOplus();
-            Eigen::Matrix<double, 9, 2> J = _jacobianOplus[6];
-            return J.transpose() * information() * J;
-        }
+//        Eigen::Matrix<double, 1, 1> GetHessianScale()
+//        {
+//            linearizeOplus();
+//            Eigen::Matrix<double, 9, 1> J = _jacobianOplus[7];
+//            return J.transpose() * information() * J;
+//        }
+//
+//        Eigen::Matrix<double, 3, 3> GetHessianBiasGyro()
+//        {
+//            linearizeOplus();
+//            Eigen::Matrix<double, 9, 3> J = _jacobianOplus[2];
+//            return J.transpose() * information() * J;
+//        }
+//
+//        Eigen::Matrix<double, 3, 3> GetHessianBiasAcc()
+//        {
+//            linearizeOplus();
+//            Eigen::Matrix<double, 9, 3> J = _jacobianOplus[3];
+//            return J.transpose() * information() * J;
+//        }
+//
+//        Eigen::Matrix<double, 2, 2> GetHessianGDir()
+//        {
+//            linearizeOplus();
+//            Eigen::Matrix<double, 9, 2> J = _jacobianOplus[6];
+//            return J.transpose() * information() * J;
+//        }
     };
 
 /** 

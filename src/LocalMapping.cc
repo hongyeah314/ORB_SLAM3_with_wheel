@@ -269,14 +269,14 @@ void LocalMapping::Run()
                             // 如果累计时间差大于5s，开始VIBA1（IMU第二阶段初始化）
                             if (mTinit>5.0f)
                             {
-                                cout << "start VIBA 1" << endl;
+                                cerr << "start VIBA 1" << endl;
                                 mpCurrentKeyFrame->GetMap()->SetIniertialBA1();
                                 if (mbMonocular)
                                     InitializeIMU(1.f, 1e5, true);
                                 else
                                     InitializeIMU(1.f, 1e5, true);
 
-                                cout << "end VIBA 1" << endl;
+                                cerr << "end VIBA 1" << endl;
                             }
                         }
                         // Step 9.2 根据条件判断是否进行VIBA2（IMU第三次初始化）
@@ -1572,6 +1572,8 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
     const int N = vpKF.size();
     IMU::Bias b(0,0,0,0,0,0);
 
+
+    cerr<<"开始进行轮速优化"<<endl;
     // Compute and KF velocities mRwg estimation
     // 在IMU连一次初始化都没有做的情况下
     if (!mpCurrentKeyFrame->GetMap()->isImuInitialized())
@@ -1687,6 +1689,8 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
         mpTracker->t0IMU = mpTracker->mCurrentFrame.mTimeStamp;
         mpCurrentKeyFrame->bImu = true;
     }
+
+    cerr<<"轮速优化结束，现在进行FIBA"<<endl;
 
     std::chrono::steady_clock::time_point t4 = std::chrono::steady_clock::now();
     // 代码里都为true

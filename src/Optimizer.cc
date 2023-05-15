@@ -2456,6 +2456,10 @@ void Optimizer::LocalInertialBA(
 
             vei[i] = new EdgeInertial(pKFi->mpImuPreintegrated);
 
+            if(pKFi->mpImuPreintegrated->encoder_velocity[0] == 0) {
+                cerr<<pKFi->mnId<<":  轮速为零  舍弃"<<endl;
+            }
+
             vei[i]->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex *>(VP1));
             vei[i]->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(VV1));
             vei[i]->setVertex(2, dynamic_cast<g2o::OptimizableGraph::Vertex *>(VG1));
@@ -2485,7 +2489,7 @@ void Optimizer::LocalInertialBA(
             vegr[i]->setVertex(1, VG2);
             Eigen::Matrix3d InfoG = pKFi->mpImuPreintegrated->C.block<3, 3>(9, 9).cast<double>().inverse();
             cerr<<"local BA中关键帧的dP"<<pKFi->mpImuPreintegrated->dP;
-            cerr<<"local BA中关键帧的轮速"<<pKFi->mpImuPreintegrated->encoder_velocity;
+            cerr<<"local BA中关键帧的轮速"<<pKFi->mpImuPreintegrated->encoder_velocity<<endl;
 
             vegr[i]->setInformation(InfoG);
             optimizer.addEdge(vegr[i]);
@@ -2768,10 +2772,10 @@ void Optimizer::LocalInertialBA(
         {
             VertexVelocity *VV = static_cast<VertexVelocity *>(optimizer.vertex(maxKFid + 3 * (pKFi->mnId) + 1));
             pKFi->SetVelocity(VV->estimate().cast<float>());
-            if(pKFi->mpImuPreintegrated->encoder_velocity(0))
-                cerr<<"轮速结果"<<pKFi->mpImuPreintegrated->encoder_velocity<<endl;
-            else
-                cerr<<"轮速结果为空"<<endl;
+//            if(pKFi->mpImuPreintegrated->encoder_velocity(0))
+//                //cerr<<"轮速结果"<<pKFi->mpImuPreintegrated->encoder_velocity<<endl;
+//            else
+//                cerr<<"轮速结果为空"<<endl;
 
             VertexGyroBias *VG = static_cast<VertexGyroBias *>(optimizer.vertex(maxKFid + 3 * (pKFi->mnId) + 2));
             VertexAccBias *VA = static_cast<VertexAccBias *>(optimizer.vertex(maxKFid + 3 * (pKFi->mnId) + 3));
@@ -3793,7 +3797,10 @@ void Optimizer::InertialOptimization(
     // Graph edges
     // IMU links with gravity and scale
     // 6. imu信息链接重力方向与尺度信息
-    vector<EdgeInertialGS *> vpei;  // 后面虽然加入了边，但是没有用到，应该调试用的
+    bool buseencoder;
+    buseencoder = true;
+// TODO 这里记得修改
+    vector<EdgeInertialGSE *> vpei;  // 后面虽然加入了边，但是没有用到，应该调试用的
     vpei.reserve(vpKFs.size());
     vector<pair<KeyFrame *, KeyFrame *>> vppUsedKF;
     vppUsedKF.reserve(vpKFs.size());  // 后面虽然加入了关键帧，但是没有用到，应该调试用的
@@ -3828,7 +3835,14 @@ void Optimizer::InertialOptimization(
                 continue;
             }
             // 6.2 这是一个大边。。。。包含了上面所有信息，注意到前面的两个偏置也做了两个一元边加入
-            EdgeInertialGS *ei = new EdgeInertialGS(pKFi->mpImuPreintegrated);
+            // TODO 还要修改这里
+            if(buseencoder)
+            {
+                if(pKFi->mpImuPreintegrated->encoder_velocity[0]==0) {
+                    cerr<<pKFi->mnId<<"  的轮速为0 "<<endl;
+                }
+            }
+            EdgeInertialGSE *ei = new EdgeInertialGSE(pKFi->mpImuPreintegrated);
             ei->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex *>(VP1));
             ei->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(VV1));
             ei->setVertex(2, dynamic_cast<g2o::OptimizableGraph::Vertex *>(VG));

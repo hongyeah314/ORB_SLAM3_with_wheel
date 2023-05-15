@@ -500,7 +500,12 @@ Sophus::SE3f System::TrackMonocular(const cv::Mat &im, const double &timestamp, 
         else if(mbResetActiveMap)
         {
             cout << "SYSTEM-> Reseting active map in monocular case" << endl;
-            mpTracker->ResetActiveMap();
+            //mpTracker->ResetActiveMap();
+            // TOOO:: 我把这里取消了
+            //如果IMU初始化成功了 那么就不用重置地图了
+            if(!mpAtlas->GetCurrentMap()->isImuInitialized())
+                mpTracker->ResetActiveMap();
+            //pCurrentMap->isImuInitialized()
             mbResetActiveMap = false;
         }
     }
