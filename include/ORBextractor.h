@@ -58,6 +58,9 @@ public:
                     std::vector<cv::KeyPoint>& _keypoints,
                     cv::OutputArray _descriptors, std::vector<int> &vLappingArea);
 
+     void readdescfromfile(cv::Mat& _descriptors, std::string filename);
+     void readptsfromfile(std::vector<cv::KeyPoint>& _keypoints, std::string filename);
+
     int inline GetLevels(){
         return nlevels;}
 

@@ -514,12 +514,29 @@ void Frame::ExtractORB(int flag, const cv::Mat &im, const int x0, const int x1)
 {
     vector<int> vLapping = {x0,x1};
     // 判断是左图还是右图
+
+    cerr<<this->mTimeStamp<<endl;
     if(flag==0)
         // 左图的话就套使用左图指定的特征点提取器，并将提取结果保存到对应的变量中 
         monoLeft = (*mpORBextractorLeft)(im,cv::Mat(),mvKeys,mDescriptors,vLapping);
     else
         // 右图的话就需要使用右图指定的特征点提取器，并将提取结果保存到对应的变量中 
         monoRight = (*mpORBextractorRight)(im,cv::Mat(),mvKeysRight,mDescriptorsRight,vLapping);
+
+
+
+
+
+
+//    std::vector<cv::Point2f> points2f;
+//// 定义一个包含关键点的向量
+//    std::vector<cv::KeyPoint> keypoints;
+//// 调用静态函数convert
+//    float size = 1.0;
+//    float response = 1.0;
+//    int octave = 0;
+//    int class_id = -1;
+//    cv::KeyPoint::convert(points2f, keypoints, size, response, octave, class_id);
 }
 
 bool Frame::isSet() const {

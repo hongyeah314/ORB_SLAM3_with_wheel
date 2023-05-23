@@ -1560,7 +1560,6 @@ static void computeDescriptors(const Mat& image, vector<KeyPoint>& keypoints, Ma
 	// Step 1 检查图像有效性。如果图像为空，那么就直接返回
         if(_image.empty())
             return -1;
-
 	//获取图像的大小
     Mat image = _image.getMat();
 	//判断图像的格式是否正确，要求是单通道灰度值
@@ -1737,6 +1736,83 @@ static void computeDescriptors(const Mat& image, vector<KeyPoint>& keypoints, Ma
         }
     }
 
+    }
+
+
+    void ORBextractor::readdescfromfile(cv::Mat &_descriptors,std::string filename){
+        ifstream descfile(filename+"_desc.csv");
+        if (!descfile.is_open()) {
+            cout << "Failed to open file!" << endl;
+            return ;
+        }
+        vector<vector<float>> data;
+        string line;
+        getline(descfile, line);//跳过第一行
+        while (getline(descfile, line)) {
+            stringstream ss(line);
+            vector<float> row;
+            string cell;
+            while (getline(ss, cell, ',')) {
+                row.push_back(stof(cell));
+            }
+            data.push_back(row);
+        }
+
+        // Create an OpenCV Mat object to hold the data
+        int rows = data.size();
+        int cols = data[0].size();
+        _descriptors.create(rows,		//矩阵的行数，对应为特征点的总个数
+                            cols, 			//矩阵的列数，对应为使用32*8=256位描述子
+                            CV_32F);			//矩阵元素的格式
+
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                _descriptors.at<float>(i, j) = data[i][j];
+            }
+        }
+
+
+        return ;
+    }
+    void ORBextractor::readptsfromfile(std::vector<cv::KeyPoint>& _keypoints,std::string filename){
+        ifstream ptsfile(filename+"_pts.csv");
+        if (!ptsfile.is_open()) {
+            cout << "Failed to open file!" << endl;
+            return ;
+        }
+        vector<vector<float>> data;
+        string line;
+        getline(ptsfile, line);//跳过第一行
+        while (getline(ptsfile, line)) {
+            stringstream ss(line);
+            vector<float> row;
+            string cell;
+            while (getline(ss, cell, ',')) {
+                row.push_back(stof(cell));
+            }
+            data.push_back(row);
+        }
+
+        // Create an OpenCV Mat object to hold the data
+        int rows = data.size();
+
+
+
+        std::vector<cv::Point2f> points2f;
+
+        for (int i = 0; i < rows; i++) {
+                points2f[i].x = data[i][0];
+                points2f[i].y = data[i][1];
+        }
+
+// 调用静态函数convert
+        float size = 31.0;
+        float response = 1.0;
+        int octave = 0;
+        int class_id = -1;
+        cv::KeyPoint::convert(points2f, _keypoints, size, response, octave, class_id);
+
+        return ;
     }
 
 } //namespace ORB_SLAM

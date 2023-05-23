@@ -223,7 +223,7 @@ public:
     Eigen::Matrix3f dR;
     Eigen::Vector3f dV, dP;
     Eigen::Matrix3f Rbo = Eigen::Matrix3f::Identity();   //encoder 和imu的旋转
-    Eigen::Vector3d Tbo = {0,0,0};   //encoder 和imu的旋转
+    Eigen::Vector3d Tbo = {-0.9810000061988831,0,0};   //encoder 和imu的旋转
     Eigen::Matrix3f JRg, JVg, JVa, JPg, JPa;
     Eigen::Vector3f avgA, avgW;
     Eigen::Vector3f encoder_velocity ;

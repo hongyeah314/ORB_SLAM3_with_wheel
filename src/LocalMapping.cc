@@ -283,14 +283,14 @@ void LocalMapping::Run()
                         // 当前关键帧所在的地图还未完成VIBA 2
                         else if(!mpCurrentKeyFrame->GetMap()->GetIniertialBA2()){
                             if (mTinit>15.0f){
-                                cout << "start VIBA 2" << endl;
+                                cerr << "start VIBA 2" << endl;
                                 mpCurrentKeyFrame->GetMap()->SetIniertialBA2();
                                 if (mbMonocular)
-                                    InitializeIMU(0.f, 0.f, true);
+                                    InitializeIMU(0.f, 0.f, false);
                                 else
-                                    InitializeIMU(0.f, 0.f, true);
+                                    InitializeIMU(0.f, 0.f, false);
 
-                                cout << "end VIBA 2" << endl;
+                                cerr << "end VIBA 2" << endl;
                             }
                         }
 

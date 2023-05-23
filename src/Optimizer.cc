@@ -2456,9 +2456,7 @@ void Optimizer::LocalInertialBA(
 
             vei[i] = new EdgeInertial(pKFi->mpImuPreintegrated);
 
-            if(pKFi->mpImuPreintegrated->encoder_velocity[0] == 0) {
-                cerr<<pKFi->mnId<<":  轮速为零  舍弃"<<endl;
-            }
+
 
             vei[i]->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex *>(VP1));
             vei[i]->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(VV1));
@@ -2488,8 +2486,8 @@ void Optimizer::LocalInertialBA(
             vegr[i]->setVertex(0, VG1);
             vegr[i]->setVertex(1, VG2);
             Eigen::Matrix3d InfoG = pKFi->mpImuPreintegrated->C.block<3, 3>(9, 9).cast<double>().inverse();
-            cerr<<"local BA中关键帧的dP"<<pKFi->mpImuPreintegrated->dP;
-            cerr<<"local BA中关键帧的轮速"<<pKFi->mpImuPreintegrated->encoder_velocity<<endl;
+//            cerr<<"local BA中关键帧的dP"<<pKFi->mpImuPreintegrated->dP;
+//            cerr<<"local BA中关键帧的轮速"<<pKFi->mpImuPreintegrated->encoder_velocity<<endl;
 
             vegr[i]->setInformation(InfoG);
             optimizer.addEdge(vegr[i]);
@@ -3799,6 +3797,7 @@ void Optimizer::InertialOptimization(
     // 6. imu信息链接重力方向与尺度信息
     bool buseencoder;
     buseencoder = true;
+    if(!pMap->isImuInitialized()&&buseencoder){ //如果没有第一次初始化并且是使用速
 // TODO 这里记得修改
     vector<EdgeInertialGSE *> vpei;  // 后面虽然加入了边，但是没有用到，应该调试用的
     vpei.reserve(vpKFs.size());
@@ -3836,12 +3835,11 @@ void Optimizer::InertialOptimization(
             }
             // 6.2 这是一个大边。。。。包含了上面所有信息，注意到前面的两个偏置也做了两个一元边加入
             // TODO 还要修改这里
-            if(buseencoder)
-            {
-                if(pKFi->mpImuPreintegrated->encoder_velocity[0]==0) {
-                    cerr<<pKFi->mnId<<"  的轮速为0 "<<endl;
+
+                if(buseencoder&&(pKFi->mpImuPreintegrated->encoder_velocity[0]==0)) {
+                    cerr << pKFi->mnId << "  的轮速为0 " << endl;
+                    continue;
                 }
-            }
             EdgeInertialGSE *ei = new EdgeInertialGSE(pKFi->mpImuPreintegrated);
             ei->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex *>(VP1));
             ei->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(VV1));
@@ -3858,7 +3856,62 @@ void Optimizer::InertialOptimization(
             optimizer.addEdge(ei);
         }
     }
+    }
+    else{
+        vector<EdgeInertialGS *> vpei;  // 后面虽然加入了边，但是没有用到，应该调试用的
+        vpei.reserve(vpKFs.size());
+        vector<pair<KeyFrame *, KeyFrame *>> vppUsedKF;
+        vppUsedKF.reserve(vpKFs.size());  // 后面虽然加入了关键帧，但是没有用到，应该调试用的
+        // std::cout << "build optimization graph" << std::endl;
 
+        for (size_t i = 0; i < vpKFs.size(); i++)
+        {
+            KeyFrame *pKFi = vpKFs[i];
+
+            if (pKFi->mPrevKF && pKFi->mnId <= maxKFid)
+            {
+                if (pKFi->isBad() || pKFi->mPrevKF->mnId > maxKFid)
+                    continue;
+                if (!pKFi->mpImuPreintegrated)
+                    std::cout << "Not preintegrated measurement" << std::endl;
+                // 到这里的条件是pKFi是好的，并且它有上一个关键帧，且他们的id要小于最大id
+                // 6.1 检查节点指针是否为空
+                // 将pKFi偏置设定为上一关键帧的偏置
+                pKFi->mpImuPreintegrated->SetNewBias(pKFi->mPrevKF->GetImuBias());
+                g2o::HyperGraph::Vertex *VP1 = optimizer.vertex(pKFi->mPrevKF->mnId);
+                g2o::HyperGraph::Vertex *VV1 = optimizer.vertex(maxKFid + (pKFi->mPrevKF->mnId) + 1);
+                g2o::HyperGraph::Vertex *VP2 = optimizer.vertex(pKFi->mnId);
+                g2o::HyperGraph::Vertex *VV2 = optimizer.vertex(maxKFid + (pKFi->mnId) + 1);
+                g2o::HyperGraph::Vertex *VG = optimizer.vertex(maxKFid * 2 + 2);
+                g2o::HyperGraph::Vertex *VA = optimizer.vertex(maxKFid * 2 + 3);
+                g2o::HyperGraph::Vertex *VGDir = optimizer.vertex(maxKFid * 2 + 4);
+                g2o::HyperGraph::Vertex *VS = optimizer.vertex(maxKFid * 2 + 5);
+                if (!VP1 || !VV1 || !VG || !VA || !VP2 || !VV2 || !VGDir || !VS)
+                {
+                    cout << "Error" << VP1 << ", " << VV1 << ", " << VG << ", " << VA << ", " << VP2 << ", " << VV2 << ", " << VGDir << ", " << VS << endl;
+
+                    continue;
+                }
+                // 6.2 这是一个大边。。。。包含了上面所有信息，注意到前面的两个偏置也做了两个一元边加入
+                // TODO 还要修改这里
+
+                EdgeInertialGS *ei = new EdgeInertialGS(pKFi->mpImuPreintegrated);
+                ei->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex *>(VP1));
+                ei->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(VV1));
+                ei->setVertex(2, dynamic_cast<g2o::OptimizableGraph::Vertex *>(VG));
+                ei->setVertex(3, dynamic_cast<g2o::OptimizableGraph::Vertex *>(VA));
+                ei->setVertex(4, dynamic_cast<g2o::OptimizableGraph::Vertex *>(VP2));
+                ei->setVertex(5, dynamic_cast<g2o::OptimizableGraph::Vertex *>(VV2));
+                ei->setVertex(6, dynamic_cast<g2o::OptimizableGraph::Vertex *>(VGDir));
+                ei->setVertex(7, dynamic_cast<g2o::OptimizableGraph::Vertex *>(VS));
+
+                vpei.push_back(ei);
+
+                vppUsedKF.push_back(make_pair(pKFi->mPrevKF, pKFi));
+                optimizer.addEdge(ei);
+            }
+        }
+    }
     // Compute error for different scales
     std::set<g2o::HyperGraph::Edge *> setEdges = optimizer.edges();
 

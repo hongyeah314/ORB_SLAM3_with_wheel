@@ -2013,6 +2013,7 @@ void Tracking::Track()
 
     // 从Atlas中取出当前active的地图
     Map* pCurrentMap = mpAtlas->GetCurrentMap();
+//    pCurrentMap->
     if(!pCurrentMap)
     {
         cout << "ERROR: There is not an active map in the atlas" << endl;
@@ -2037,12 +2038,13 @@ void Tracking::Track()
             // cout << "id last: " << mLastFrame.mnId << "    id curr: " << mCurrentFrame.mnId << endl;
             // 如果当前图像时间戳和前一帧图像时间戳大于1s，说明时间戳明显跳变了，重置地图后直接返回
             //根据是否是imu模式,进行imu的补偿
-//            if(mpAtlas->isInertial())
-//            {
-//                // 如果当前地图imu成功初始化
-//                if(mpAtlas->isImuInitialized())
-//                {
-//                    cout << "Timestamp jump detected. State set to LOST. Reseting IMU integration..." << endl;
+            if(mpAtlas->isInertial())
+            {
+                // 如果当前地图imu成功初始化
+                if(mpAtlas->isImuInitialized())
+                {
+                    cout << "Timestamp jump detected. State set to LOST. Reseting IMU integration..." << endl;
+                    //CreateMapInAtlas();
 //                    // IMU完成第3次初始化（在localmapping线程里）
 //                    if(!pCurrentMap->GetIniertialBA2())
 //                    {
@@ -2056,15 +2058,15 @@ void Tracking::Track()
 //                        // 如果当前子图中imu进行了BA2，重新创建新的子图，保存当前地图
 //                        CreateMapInAtlas();
 //                    }
-//                }
-//                else
-//                {
-//                    // 如果当前子图中imu还没有初始化，重置active地图
-//                    cout << "Timestamp jump detected, before IMU initialization. Reseting..." << endl;
-//                    mpSystem->ResetActiveMap();
-//                }
-//                return;
-//            }
+                }
+                else
+                {
+                    // 如果当前子图中imu还没有初始化，重置active地图
+                    cout << "果当前子图中imu还没有初始化，重置active地图" << endl;
+                    mpSystem->ResetActiveMap();
+                }
+                return;
+            }
 
         }
     }
@@ -2245,8 +2247,10 @@ void Tracking::Track()
                     {
                         // IMU模式下可以用IMU来预测位姿，看能否拽回来
                         // Step 6.4 如果当前地图中IMU已经成功初始化，就用IMU数据预测位姿
-                        if(pCurrentMap->isImuInitialized())
+                        if(pCurrentMap->isImuInitialized()){
+                            cerr<<"如果当前地图中IMU已经成功初始化，就用IMU数据预测位姿"<<endl;
                             PredictStateIMU();
+                        }
                         else
                             bOK = false;
 
@@ -2254,6 +2258,7 @@ void Tracking::Track()
                         // 放弃了，将RECENTLY_LOST状态改为LOST
                         if (mCurrentFrame.mTimeStamp-mTimeStampLost>time_recently_lost)
                         {
+                            cerr<<"如果IMU模式下当前帧距离跟丢帧超过5s还没有找回（time_recently_lost默认为5s）,RECENTLY_LOST状态改为LOST"<<endl;
                             mState = LOST;
                             Verbose::PrintMess("Track Lost...", Verbose::VERBOSITY_NORMAL);
                             bOK=false;
@@ -2289,6 +2294,7 @@ void Tracking::Track()
                         Verbose::PrintMess("Reseting current map...", Verbose::VERBOSITY_NORMAL);
                     }else
                         CreateMapInAtlas();  // 当前地图中关键帧数目超过10，创建新地图
+                        cerr<<" 当前地图中关键帧数目超过10，创建新地图"<<endl;
                     // 干掉上一个关键帧
                     if(mpLastKeyFrame)
                         mpLastKeyFrame = static_cast<KeyFrame*>(NULL);
@@ -2426,6 +2432,7 @@ void Tracking::Track()
             {
                 // 局部地图跟踪
                 bOK = TrackLocalMap();
+
             }
             if(!bOK)
                 cerr << "Fail to track local map!" << endl;
@@ -3416,7 +3423,7 @@ bool Tracking::TrackWithMotionModel()
     UpdateLastFrame();
 
     // Step 2：根据IMU或者恒速模型得到当前帧的初始位姿。
-    if (mpAtlas->isImuInitialized() && (mCurrentFrame.mnId>mnLastRelocFrameId+mnFramesToResetIMU))
+    if ((mpAtlas->isImuInitialized() && (mCurrentFrame.mnId>mnLastRelocFrameId+mnFramesToResetIMU) )||(mCurrentFrame.mTimeStamp>mLastFrame.mTimeStamp+1.0))
     {
         // Predict state with IMU if it is initialized and it doesnt need reset
         // IMU完成初始化 并且 距离重定位挺久不需要重置IMU，用IMU来估计位姿，没有后面的这那那这的
@@ -3630,6 +3637,7 @@ bool Tracking::TrackLocalMap()
     // Decide if the tracking was succesful
     // More restrictive if there was a relocalization recently
     mpLocalMapper->mnMatchesInliers=mnMatchesInliers;
+    cerr<<"跟踪匹配数目: "<<mnMatchesInliers<<endl;
     // Step 5：根据跟踪匹配数目及重定位情况决定是否跟踪成功
     // 如果最近刚刚发生了重定位,那么至少成功匹配50个点才认为是成功跟踪
     if(mCurrentFrame.mnId<mnLastRelocFrameId+mMaxFrames && mnMatchesInliers<50)

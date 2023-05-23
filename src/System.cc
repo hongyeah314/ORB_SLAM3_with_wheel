@@ -499,7 +499,7 @@ Sophus::SE3f System::TrackMonocular(const cv::Mat &im, const double &timestamp, 
         // 如果检测到重置活动地图的标志为true,将重置地图
         else if(mbResetActiveMap)
         {
-            cout << "SYSTEM-> Reseting active map in monocular case" << endl;
+            cerr << "SYSTEM-> Reseting active map in monocular case" << endl;
             //mpTracker->ResetActiveMap();
             // TOOO:: 我把这里取消了
             //如果IMU初始化成功了 那么就不用重置地图了
