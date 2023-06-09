@@ -1928,7 +1928,7 @@ bool Tracking::PredictStateIMU()
     // 地图更新后会更新关键帧与MP，所以相对于关键帧更准
     // 而没更新的话，距离上一帧更近，计算起来误差更小
     // 地图更新时，并且上一个图像关键帧存在
-    if(mbMapUpdated && mpLastKeyFrame)
+    if((mbMapUpdated && mpLastKeyFrame)||(mCurrentFrame.mTimeStamp>mLastFrame.mTimeStamp+1.0))
     {
         const Eigen::Vector3f twb1 = mpLastKeyFrame->GetImuPosition();
         const Eigen::Matrix3f Rwb1 = mpLastKeyFrame->GetImuRotation();
@@ -1946,6 +1946,24 @@ bool Tracking::PredictStateIMU()
         Eigen::Vector3f Vwb2 = Vwb1 + t12*Gz + Rwb1 * mpImuPreintegratedFromLastKF->GetDeltaVelocity(mpLastKeyFrame->GetImuBias());
         // 设置当前帧的世界坐标系的相机位姿
         mCurrentFrame.SetImuPoseVelocity(Rwb2,twb2,Vwb2);
+        if(mCurrentFrame.mTimeStamp>mLastFrame.mTimeStamp+1.0){
+            //在这里更改了整体地图的的重建流程
+            auto tmpframe = Frame(mCurrentFrame);
+            auto tmplastframe = Frame(mLastFrame);
+            auto tmpbios = mpLastKeyFrame->GetImuBias();
+            cerr<<"空帧： 只依靠IMU获取到translation  "<<twb2<<endl;
+            CreateMapInAtlas();
+            cerr<<"赋予新帧"<<endl;
+            mCurrentFrame=Frame(tmpframe);
+            mLastFrame = Frame(tmplastframe);
+            cerr<<"成功赋予新帧"<<endl;
+            mCurrentFrame.SetImuPoseVelocity(Rwb2,twb2,Vwb2);
+            cerr<<"成功赋予pose"<<endl;
+            mCurrentFrame.mImuBias = tmpbios;
+            mCurrentFrame.mPredBias = mCurrentFrame.mImuBias;
+            return true;
+
+        }
 
         // 记录bias
         mCurrentFrame.mImuBias = mpLastKeyFrame->GetImuBias();
@@ -2065,7 +2083,7 @@ void Tracking::Track()
                     cout << "果当前子图中imu还没有初始化，重置active地图" << endl;
                     mpSystem->ResetActiveMap();
                 }
-                return;
+                //return;
             }
 
         }
@@ -2198,6 +2216,8 @@ void Tracking::Track()
                     // 通过投影的方式在参考帧中找当前帧特征点的匹配点，优化每个特征点所对应3D点的投影误差即可得到位姿
                     bOK = TrackWithMotionModel();
                     cerr<<"恒速运动模型成功： "<<bOK<<endl;
+                    if(mCurrentFrame.mTimeStamp>mLastFrame.mTimeStamp+1.0)
+                        return;
                     if(!bOK){
                         bOK = TrackReferenceKeyFrame();  // 根据恒速模型失败了，只能根据参考关键帧来跟踪
                         cerr<<"恒速运动模型失败，只能用参考关键帧来进行跟踪： "<<bOK<<endl;}
@@ -2954,10 +2974,12 @@ void Tracking::MonocularInitialization()
 
             // Set Frame Poses
             // Step 7 将初始化的第一帧作为世界坐标系，因此第一帧变换矩阵为单位矩阵
+
             mInitialFrame.SetPose(Sophus::SE3f());
             // 由Rcw和tcw构造Tcw,并赋值给mTcw，mTcw为世界坐标系到相机坐标系的变换矩阵
             mCurrentFrame.SetPose(Tcw);
 
+            //mpAtlas->GetCurrentMap().
             // Step 8 创建初始化地图点MapPoints
             // Initialize函数会得到mvIniP3D，
             // mvIniP3D是cv::Point3f类型的一个容器，是个存放3D点的临时变量，
@@ -3187,6 +3209,7 @@ void Tracking::CreateMapInAtlas()
 
     mLastFrame = Frame();
     mCurrentFrame = Frame();
+
     mvIniMatches.clear();
     mlQueueImuData.clear();
 

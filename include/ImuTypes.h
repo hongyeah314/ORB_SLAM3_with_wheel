@@ -205,8 +205,8 @@ public:
 
     void printMeasurements() const {
         std::cout << "pint meas:\n";
-        for(int i=0; i<mvMeasurements.size(); i++){
-            std::cout << "meas " << mvMeasurements[i].t << std::endl;
+        for(const auto & mvMeasurement : mvMeasurements){
+            std::cout << "meas " << mvMeasurement.t << std::endl;
         }
         std::cout << "end pint meas:\n";
     }
@@ -251,7 +251,7 @@ private:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         integrable(){}
         integrable(const Eigen::Vector3f &a_, const Eigen::Vector3f &w_ , const float &t_):a(a_),w(w_),t(t_){}
-        integrable(const Eigen::Vector3f &a_, const Eigen::Vector3f &w_ , const float &t_, const double &enc_):a(a_),w(w_),t(t_),enc(enc_){}
+        integrable(const Eigen::Vector3f &a_, const Eigen::Vector3f &w_ , const float &t_, const double &enc_):enc(enc_),a(a_),w(w_),t(t_){}
         double enc;
         Eigen::Vector3f a, w;
         float t;

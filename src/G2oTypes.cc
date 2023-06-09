@@ -1016,13 +1016,13 @@ void EdgeInertialGSE::linearizeOplus()
         _jacobianOplus[7].block<3,1>(9,0) =Rbw1*(VP2->estimate().twb-VP1->estimate().twb) * s;
        // cerr<<"矩阵8 没问题"<<endl;
         cerr<<"雅克比矩阵0"<<endl<<_jacobianOplus[0]<<endl;
-        cerr<<"雅克比矩阵1"<<endl<<_jacobianOplus[1]<<endl;
-        cerr<<"雅克比矩阵2"<<endl<<_jacobianOplus[2]<<endl;
-        cerr<<"雅克比矩阵3"<<endl<<_jacobianOplus[3]<<endl;
-        cerr<<"雅克比矩阵4"<<endl<<_jacobianOplus[4]<<endl;
-        cerr<<"雅克比矩阵5"<<endl<<_jacobianOplus[5]<<endl;
-        cerr<<"雅克比矩阵6"<<endl<<_jacobianOplus[6]<<endl;
-        cerr<<"雅克比矩阵7"<<endl<<_jacobianOplus[7]<<endl;
+//        cerr<<"雅克比矩阵1"<<endl<<_jacobianOplus[1]<<endl;
+//        cerr<<"雅克比矩阵2"<<endl<<_jacobianOplus[2]<<endl;
+//        cerr<<"雅克比矩阵3"<<endl<<_jacobianOplus[3]<<endl;
+//        cerr<<"雅克比矩阵4"<<endl<<_jacobianOplus[4]<<endl;
+//        cerr<<"雅克比矩阵5"<<endl<<_jacobianOplus[5]<<endl;
+//        cerr<<"雅克比矩阵6"<<endl<<_jacobianOplus[6]<<endl;
+//        cerr<<"雅克比矩阵7"<<endl<<_jacobianOplus[7]<<endl;
 
     }
 
